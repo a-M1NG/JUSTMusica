@@ -1,0 +1,45 @@
+name: just_musica
+description: A modern local music player for Windows built with Flutter.
+version: 1.0.0
+publish_to: 'none'
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'  # 兼容 Flutter 3.29.0
+  flutter: 3.29.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # UI 相关
+  cupertino_icons: ^1.0.8  # 用于默认图标
+  flutter_svg: ^2.0.10     # 支持 SVG 图标
+  provider: ^6.1.2         # 状态管理
+  scrollable_positioned_list: ^0.3.2  # 歌词滚动显示
+  cached_network_image: ^3.3.1  # 封面缓存加载
+
+  # 文件与存储
+  path_provider: ^2.1.5    # 获取应用目录
+  sqflite: ^2.3.3          # SQLite 数据库
+  file_picker: ^8.1.2      # 文件夹和文件选择
+  permission_handler: ^11.3.1  # 文件权限管理
+
+  # 音乐与元数据
+  just_audio: ^0.9.40      # 音频播放
+  audio_service: ^0.18.15  # 后台播放支持
+  audiotags: ^2.0.0        # 读取音乐元数据（如封面、歌手等）
+
+  # 工具
+  crypto: ^3.0.5           # MD5 哈希用于缩略图命名
+  image: ^4.2.0            # 图像处理（生成缩略图）
+  webp: ^0.3.0             # WebP 格式支持
+  get_it: ^7.7.0           # 依赖注入
+  logger: ^2.4.0           # 日志记录
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0    # 代码静态分析
+  build_runner: ^2.4.12    # 代码生成支持（若需要）
+
+flutter:
+  uses-material-design: true
