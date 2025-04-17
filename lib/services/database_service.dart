@@ -1,4 +1,5 @@
-import 'package:sqflite/sqflite.dart';
+// import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // 新增：支持桌面平台的 sqflite
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'dart:io';
@@ -87,6 +88,13 @@ class DatabaseService {
   static Database? _database;
   static const String dbName = 'justmusic.db';
   final Logger _logger = Logger(); // 可选：日志记录
+
+  // 静态初始化方法，用于设置 databaseFactory（桌面平台需要）
+  static void init() {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      databaseFactory = databaseFactoryFfi; // 设置 FFI 数据库工厂
+    }
+  }
 
   // 获取数据库实例
   Future<Database> get database async {
