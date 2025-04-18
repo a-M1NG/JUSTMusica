@@ -81,26 +81,39 @@ class MusicScannerService {
   /// 从文件中提取元数据并创建 SongModel
   Future<SongModel?> _createSongModelFromFile(File file) async {
     try {
-      // 使用 audiotags 提取元数据
       final tag = await AudioTags.read(file.path);
       if (tag == null) {
         _logger.w('No metadata found for file: ${file.path}');
-        return null;
+        return SongModel(
+          path: file.path,
+          title: p.basenameWithoutExtension(file.path),
+          artist: 'Unknown Artist',
+          album: null,
+          duration: null, // 可通过 just_audio 获取时长
+          coverPath: null,
+          isFavorite: false,
+        );
       }
-
-      // 创建 SongModel 实例
       return SongModel(
         path: file.path,
         title: tag.title?.isNotEmpty == true ? tag.title : p.basenameWithoutExtension(file.path),
         artist: tag.trackArtist?.isNotEmpty == true ? tag.trackArtist : 'Unknown Artist',
         album: tag.album?.isNotEmpty == true ? tag.album : null,
         duration: tag.duration,
-        coverPath: null, // 封面路径后续可通过 thumbnail_generator.dart 生成
+        coverPath: null,
         isFavorite: false,
       );
     } catch (e) {
       _logger.e('Failed to create SongModel from file ${file.path}: $e');
-      return null;
+      return SongModel(
+        path: file.path,
+        title: p.basenameWithoutExtension(file.path),
+        artist: 'Unknown Artist',
+        album: null,
+        duration: null,
+        coverPath: null,
+        isFavorite: false,
+      );
     }
   }
 }
