@@ -1,88 +1,13 @@
-// import 'package:sqflite/sqflite.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // 新增：支持桌面平台的 sqflite
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // 支持桌面平台的 sqflite
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'dart:io';
 import 'package:logger/logger.dart'; // 可选：用于日志记录
 
-// 数据模型（假设已定义在 models/ 目录中）
-class SongModel {
-  final int? id;
-  final String path;
-  final String? title;
-  final String? artist;
-  final String? album;
-  final int? duration;
-  final String? coverPath;
-  final bool isFavorite;
-
-  SongModel({
-    this.id,
-    required this.path,
-    this.title,
-    this.artist,
-    this.album,
-    this.duration,
-    this.coverPath,
-    this.isFavorite = false,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'path': path,
-      'title': title,
-      'artist': artist,
-      'album': album,
-      'duration': duration,
-      'cover_path': coverPath,
-      'is_favorite': isFavorite ? 1 : 0,
-    };
-  }
-
-  factory SongModel.fromMap(Map<String, dynamic> map) {
-    return SongModel(
-      id: map['id'],
-      path: map['path'],
-      title: map['title'],
-      artist: map['artist'],
-      album: map['album'],
-      duration: map['duration'],
-      coverPath: map['cover_path'],
-      isFavorite: map['is_favorite'] == 1,
-    );
-  }
-}
-
-class PlaylistModel {
-  final int? id;
-  final String name;
-  final DateTime createdAt;
-  final List<SongModel>? songs;
-
-  PlaylistModel({
-    this.id,
-    required this.name,
-    required this.createdAt,
-    this.songs,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'name': name,
-      'created_at': createdAt.toIso8601String(),
-    };
-  }
-
-  factory PlaylistModel.fromMap(Map<String, dynamic> map) {
-    return PlaylistModel(
-      id: map['id'],
-      name: map['name'],
-      createdAt: DateTime.parse(map['created_at']),
-    );
-  }
-}
+// 导入模型
+import '../models/song_model.dart';
+import '../models/playlist_model.dart';
+import '../models/settings_model.dart';
 
 class DatabaseService {
   static Database? _database;
@@ -439,9 +364,10 @@ class DatabaseService {
   Future<void> setSetting(String key, String value) async {
     final db = await database;
     try {
+      final settingsModel = SettingsModel(key: key, value: value);
       await db.insert(
         'Settings',
-        {'key': key, 'value': value},
+        settingsModel.toMap(),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {
@@ -459,7 +385,11 @@ class DatabaseService {
         where: 'key = ?',
         whereArgs: [key],
       );
-      return maps.isNotEmpty ? maps[0]['value'] as String? : null;
+      if (maps.isNotEmpty) {
+        final settingsModel = SettingsModel.fromMap(maps[0]);
+        return settingsModel.value;
+      }
+      return null;
     } catch (e) {
       _logger.e('Failed to get setting: $e');
       rethrow;
