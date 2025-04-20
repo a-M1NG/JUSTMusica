@@ -16,15 +16,19 @@ dependencies:
   provider: ^6.1.4         # 状态管理
   scrollable_positioned_list: ^0.3.8  # 歌词滚动显示
   cached_network_image: ^3.4.1  # 封面缓存加载
+  shared_preferences: ^2.5.3  # 应用设置存储
 
   # 文件与存储
   path_provider: ^2.1.5    # 获取应用目录
   sqflite: ^2.4.2          # SQLite 数据库
+  sqflite_common_ffi: ^2.3.5 # SQLite FFI 支持（Windows）
   file_picker: ^10.1.2      # 文件夹和文件选择
   permission_handler: ^12.0.0+1  # 文件权限管理
+  path: ^1.9.1             # 文件路径操作（新增）
 
   # 音乐与元数据
   just_audio: ^0.10.0      # 音频播放
+  just_audio_windows: ^0.2.2  # Windows 音频播放支持
   audio_service: ^0.18.18  # 后台播放支持
   audiotags: ^1.4.5        # 读取音乐元数据（如封面、歌手等）
 
@@ -34,6 +38,8 @@ dependencies:
   webp: ^1.0.0             # WebP 格式支持
   get_it: ^8.0.3           # 依赖注入
   logger: ^2.5.0           # 日志记录
+  logging: ^1.3.0          # 日志记录（新增）
+  rxdart: ^0.28.0          # 响应式编程支持（新增）
 
 dev_dependencies:
   flutter_test:
