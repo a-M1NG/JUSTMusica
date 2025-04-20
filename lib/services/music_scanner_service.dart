@@ -84,6 +84,7 @@ class MusicScannerService {
       final tag = await AudioTags.read(file.path);
       if (tag == null) {
         _logger.w('No metadata found for file: ${file.path}');
+        // 创建默认 SongModel，即使无元数据
         return SongModel(
           path: file.path,
           title: p.basenameWithoutExtension(file.path),
@@ -105,6 +106,7 @@ class MusicScannerService {
       );
     } catch (e) {
       _logger.e('Failed to create SongModel from file ${file.path}: $e');
+      // 异常时也创建默认 SongModel
       return SongModel(
         path: file.path,
         title: p.basenameWithoutExtension(file.path),
