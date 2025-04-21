@@ -28,8 +28,9 @@ dependencies:
   path: ^1.9.1             # 文件路径操作（新增）
 
   # 音乐与元数据
-  just_audio: ^0.10.0      # 音频播放
-  just_audio_windows: ^0.2.2  # Windows 音频播放支持
+  # just_audio: ^0.9.40      # 音频播放
+  # just_audio_windows: ^0.2.2  # Windows 音频播放支持
+  audioplayers: ^6.4.0     
   audio_service: ^0.18.18  # 后台播放支持
   audiotags: ^1.4.5        # 读取音乐元数据（如封面、歌手等）
 

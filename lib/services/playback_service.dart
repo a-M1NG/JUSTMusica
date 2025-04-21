@@ -1,6 +1,7 @@
 import 'dart:math';
+import 'dart:io'; // 用于 Platform.isWindows 检查
 import 'package:flutter/material.dart';
-import 'package:just_audio/just_audio.dart' as windows;
+import 'package:audioplayers/audioplayers.dart'; // 替换 just_audio 为 audioplayers
 import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/services/database_service.dart';
 import 'package:logger/logger.dart';
@@ -32,7 +33,7 @@ class PlaybackState {
 }
 
 class PlaybackService extends ChangeNotifier {
-  final windows.AudioPlayer _audioPlayer = windows.AudioPlayer();
+  final AudioPlayer _audioPlayer = AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
   final DatabaseService _dbService = DatabaseService();
   final Logger _logger = Logger();
 
@@ -49,21 +50,25 @@ class PlaybackService extends ChangeNotifier {
   }
 
   void _init() {
-    _audioPlayer.positionStream.listen((position) {
+    // 监听播放位置
+    _audioPlayer.onPositionChanged.listen((position) {
       _updatePlaybackState(position: position);
     });
 
-    _audioPlayer.durationStream.listen((duration) {
-      _updatePlaybackState(duration: duration ?? Duration.zero);
+    // 监听总时长
+    _audioPlayer.onDurationChanged.listen((duration) {
+      _updatePlaybackState(duration: duration);
     });
 
-    _audioPlayer.playerStateStream.listen((state) {
-      final isPlaying = state.playing;
-      if (state.processingState == windows.ProcessingState.completed) {
-        _handleSongCompletion();
-      } else {
-        _updatePlaybackState(isPlaying: isPlaying);
-      }
+    // 监听播放状态
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      final isPlaying = state == PlayerState.playing;
+      _updatePlaybackState(isPlaying: isPlaying);
+    });
+
+    // 监听歌曲完成
+    _audioPlayer.onPlayerComplete.listen((_) {
+      _handleSongCompletion();
     });
 
     _updatePlaybackState();
@@ -118,7 +123,6 @@ class PlaybackService extends ChangeNotifier {
       }
 
       _playNextSongs.add(song);
-
       _logger.i('Added song "${song.title}" to play next');
       notifyListeners();
     } catch (e) {
@@ -139,6 +143,11 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> playSong(SongModel song) async {
     try {
+      // Windows 平台临时检查（可选）
+      if (Platform.isWindows) {
+        _logger.w('Playing on Windows with audioplayers: ${song.title}');
+      }
+
       if (_currentPlaylist.isEmpty) {
         _currentPlaylist = await _dbService.getAllSongs();
       }
@@ -149,8 +158,8 @@ class PlaybackService extends ChangeNotifier {
         _currentIndex = _currentPlaylist.length - 1;
       }
 
-      await _audioPlayer.setFilePath(song.path);
-      await _audioPlayer.play();
+      // 使用 audioplayers 播放本地文件
+      await _audioPlayer.play(DeviceFileSource(song.path));
       _updatePlaybackState(currentSong: song, isPlaying: true);
       _logger.i('Playing song: ${song.title}');
       notifyListeners();
@@ -174,7 +183,7 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> resume() async {
     try {
-      await _audioPlayer.play();
+      await _audioPlayer.resume();
       _updatePlaybackState(isPlaying: true);
       _logger.i('Playback resumed');
       notifyListeners();
@@ -186,7 +195,7 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> next() async {
     try {
-      // 先从playNextSongs中取出歌曲, 优先播放
+      // 先从 playNextSongs 中取出歌曲，优先播放
       if (_playNextSongs.isNotEmpty) {
         final nextSong = _playNextSongs.removeAt(0);
         await playSong(nextSong);
@@ -258,7 +267,7 @@ class PlaybackService extends ChangeNotifier {
   Future<void> _handleSongCompletion() async {
     if (_playbackMode == PlaybackMode.singleLoop) {
       await _audioPlayer.seek(Duration.zero);
-      await _audioPlayer.play();
+      await _audioPlayer.resume();
     } else if (_playbackMode == PlaybackMode.loopAll) {
       await next();
     } else if (_playbackMode == PlaybackMode.sequential &&
@@ -276,5 +285,6 @@ class PlaybackService extends ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     _playbackStateSubject.close();
+    super.dispose();
   }
 }
