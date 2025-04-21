@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../utils/thumbnail_generator.dart';
@@ -29,15 +28,62 @@ class SongListItem extends StatelessWidget {
       onDoubleTap: onPlay,
       onSecondaryTapDown: (details) =>
           _showContextMenu(context, details.globalPosition),
-      child: ListTile(
-        title: Text(song.title ?? '未知曲名'),
-        subtitle: Text(song.artist ?? '未知歌手'),
-        trailing: SizedBox(
-          width: 200,
+      child: InkWell(
+        hoverColor: Colors.grey.withOpacity(0.1),
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        onTap: onPlay,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              Expanded(child: Text(song.album ?? '未知专辑')),
+              // 封面
+              FutureBuilder<ImageProvider>(
+                future: ThumbnailGenerator().getThumbnailProvider(song.path),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Image(
+                      image: snapshot.data!,
+                      width: 40,
+                      height: 40,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.music_note, size: 40),
+                    );
+                  }
+                  return const Icon(Icons.music_note, size: 40);
+                },
+              ),
+              const SizedBox(width: 16),
+
+              // 歌曲信息
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      song.title ?? '未知曲名',
+                      style: Theme.of(context).textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      song.artist ?? '未知歌手',
+                      style: Theme.of(context).textTheme.bodySmall,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              // 专辑信息
+              Expanded(
+                child: Text(
+                  song.album ?? '未知专辑',
+                  style: Theme.of(context).textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              // 收藏按钮
               IconButton(
                 icon: Icon(
                   song.isFavorite ? Icons.favorite : Icons.favorite_border,
@@ -46,35 +92,11 @@ class SongListItem extends StatelessWidget {
                 ),
                 onPressed: onToggleFavorite,
               ),
+
+              // 时长
               Text(_formatDuration(song.duration)),
             ],
           ),
-        ),
-        leading: FutureBuilder<String>(
-          future: ThumbnailGenerator().getThumbnail(song.path),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const SizedBox(
-                    width: 40,
-                    height: 40,
-                    child: CircularProgressIndicator(strokeWidth: 2));
-              }
-              if (snapshot.hasError ||
-                  !snapshot.hasData ||
-                  snapshot.data!.isEmpty) {
-                return const Icon(Icons.music_note, size: 40);
-              }
-              return Image.file(
-                File(snapshot.data!),
-                width: 40,
-                height: 40,
-                errorBuilder: (_, __, ___) =>
-                    const Icon(Icons.music_note, size: 40),
-              );
-            }
-            return const Icon(Icons.music_note, size: 40);
-          },
         ),
       ),
     );

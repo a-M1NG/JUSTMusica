@@ -33,7 +33,8 @@ class PlaybackState {
 }
 
 class PlaybackService extends ChangeNotifier {
-  final AudioPlayer _audioPlayer = AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
+  final AudioPlayer _audioPlayer =
+      AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
   final DatabaseService _dbService = DatabaseService();
   final Logger _logger = Logger();
 

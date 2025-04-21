@@ -5,15 +5,18 @@ import '../models/playlist_model.dart';
 import '../services/playlist_service.dart';
 import 'playlist_detail_page.dart';
 import '../services/favorites_service.dart';
+import '../services/playback_service.dart';
 
 class PlaylistsPage extends StatefulWidget {
   const PlaylistsPage({
     super.key,
     required this.playlistService,
     required this.favoritesService,
+    required this.playbackService,
   });
   final PlaylistService playlistService;
   final FavoritesService favoritesService;
+  final PlaybackService playbackService;
   @override
   State<PlaylistsPage> createState() => _PlaylistsPageState();
 }
@@ -96,9 +99,11 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
                         context,
                         MaterialPageRoute(
                           builder: (_) => PlaylistDetailPage(
-                              playlist: playlist,
-                              playlistService: widget.playlistService,
-                              favoritesService: widget.favoritesService),
+                            playlist: playlist,
+                            playlistService: widget.playlistService,
+                            favoritesService: widget.favoritesService,
+                            playbackService: widget.playbackService,
+                          ),
                         ),
                       );
                     },

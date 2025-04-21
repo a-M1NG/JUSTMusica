@@ -92,8 +92,10 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void _toggleFavorite(SongModel song) {
+    setState(() {
+      song.isFavorite = !song.isFavorite;
+    });
     widget.favoritesService.toggleFavorite(song.id!);
-    _loadFavorites(); // 重新加载收藏列表
   }
 
   void _removeFavorite(SongModel song) async {

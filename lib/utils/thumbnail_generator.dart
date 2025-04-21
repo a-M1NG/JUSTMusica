@@ -12,6 +12,21 @@ import '../services/database_service.dart';
 class ThumbnailGenerator {
   // 缩略图尺寸
   static const int _thumbnailSize = 100;
+  static final _imageCache = <String, ImageProvider>{};
+
+  Future<ImageProvider> getThumbnailProvider(String songPath) async {
+    if (_imageCache.containsKey(songPath)) {
+      return _imageCache[songPath]!;
+    }
+
+    final filePath = await getThumbnail(songPath);
+    if (filePath.isEmpty)
+      return const AssetImage('assets/images/default_cover.jpg');
+
+    final provider = FileImage(File(filePath));
+    _imageCache[songPath] = provider;
+    return provider;
+  }
 
   Future<Image> getOriginCover(String songPath) async {
     try {

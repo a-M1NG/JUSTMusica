@@ -10,11 +10,13 @@ class PlaylistDetailPage extends StatefulWidget {
   final PlaylistModel playlist;
   final PlaylistService playlistService;
   final FavoritesService favoritesService;
+  final PlaybackService playbackService;
   const PlaylistDetailPage({
     super.key,
     required this.playlist,
     required this.playlistService,
     required this.favoritesService,
+    required this.playbackService,
   });
 
   @override
@@ -77,19 +79,18 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   void _playSong(SongModel song) {
-    PlaybackService().setPlaybackList([song]);
-    PlaybackService().playSong(song);
+    widget.playbackService.setPlaybackList([song]);
+    widget.playbackService.playSong(song);
   }
 
   void _addToNext(SongModel song) {
-    PlaybackService().playNext(song.id!);
+    widget.playbackService.playNext(song.id!);
   }
 
   void _toggleFavorite(SongModel song) {
     widget.favoritesService.toggleFavorite(song.id!);
     setState(() {
-      _songsFuture =
-          widget.playlistService.getPlaylistSongs(widget.playlist.id!);
+      song.isFavorite = !song.isFavorite;
     });
   }
 

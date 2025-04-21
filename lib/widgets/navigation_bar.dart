@@ -4,18 +4,22 @@ import '../services/playlist_service.dart';
 import '../models/playlist_model.dart';
 import '../views/playlist_detail_page.dart';
 import '../services/favorites_service.dart';
+import '../views/setting_page.dart';
+import '../services/playback_service.dart';
 
 class NavigationBarWidget extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
   final PlaylistService playlistService;
   final FavoritesService favoritesService;
+  final PlaybackService playbackService;
   const NavigationBarWidget({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
     required this.playlistService,
     required this.favoritesService,
+    required this.playbackService,
   });
 
   @override
@@ -36,6 +40,8 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
           _buildNavItem(1, '我喜欢', Icons.favorite),
           _buildPlaylistsSection(),
           _buildNavItem(3, '播放列表', Icons.queue_music),
+          const Spacer(),
+          _buildSettingsButton(context),
         ],
       ),
     );
@@ -47,6 +53,19 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       title: Text(title),
       selected: widget.selectedIndex == index,
       onTap: () => widget.onItemTapped(index),
+    );
+  }
+
+  Widget _buildSettingsButton(BuildContext context) {
+    return ListTile(
+      leading: Icon(Icons.settings, size: 24, color: Colors.grey),
+      title: const Text('设置'),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const SettingsPage()),
+        );
+      },
     );
   }
 
@@ -93,7 +112,8 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
                                 builder: (_) => PlaylistDetailPage(
                                     playlist: playlist,
                                     playlistService: widget.playlistService,
-                                    favoritesService: widget.favoritesService)),
+                                    favoritesService: widget.favoritesService,
+                                    playbackService: widget.playbackService)),
                           );
                         },
                       ))

@@ -44,6 +44,7 @@ class _MainPageState extends State<MainPage> {
       PlaylistsPage(
         playlistService: _playlistService!,
         favoritesService: _favoritesService!,
+        playbackService: _playbackService!,
       ),
       PlaybackListPage(favoritesService: _favoritesService!),
     ];
@@ -112,6 +113,7 @@ class _MainPageState extends State<MainPage> {
               onItemTapped: _onNavItemTapped,
               playlistService: _playlistService!,
               favoritesService: _favoritesService!,
+              playbackService: _playbackService!,
             ),
             Expanded(
               child: Column(
@@ -120,6 +122,7 @@ class _MainPageState extends State<MainPage> {
                   PlaybackControlBar(
                     playlistService: _playlistService!,
                     favoritesService: _favoritesService!,
+                    playbackService: _playbackService!,
                   ),
                 ],
               ),

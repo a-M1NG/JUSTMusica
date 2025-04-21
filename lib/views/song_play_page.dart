@@ -11,10 +11,15 @@ import '../services/favorites_service.dart';
 
 class SongPlayPage extends StatefulWidget {
   final SongModel song;
-
+  final PlaybackService playbackService;
+  final FavoritesService favoritesService;
+  final PlaylistService playlistService;
   const SongPlayPage({
     super.key,
     required this.song,
+    required this.playbackService,
+    required this.favoritesService,
+    required this.playlistService,
   });
 
   @override
@@ -29,17 +34,11 @@ class _SongPlayPageState extends State<SongPlayPage> {
   void initState() {
     super.initState();
     _lyricsFuture = LyricsService().getLrcForSong(widget.song);
-    // 假设后端提供封面颜色提取逻辑，这里简化为主题色
-    _backgroundColor = Theme.of(context).primaryColor;
+    _backgroundColor = Colors.grey; // 默认底色
   }
 
   @override
   Widget build(BuildContext context) {
-    final playlistService =
-        Provider.of<PlaylistService>(context, listen: false);
-    final favoritesService =
-        Provider.of<FavoritesService>(context, listen: false);
-
     return Scaffold(
       backgroundColor: _backgroundColor.withOpacity(0.1),
       body: Stack(
@@ -56,8 +55,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                     children: [
                       _buildCover(),
                       const SizedBox(height: 16),
-                      _buildPlaybackControls(
-                          context, playlistService, favoritesService),
+                      _buildPlaybackControls(context, widget.playlistService,
+                          widget.favoritesService),
                     ],
                   ),
                 ),
