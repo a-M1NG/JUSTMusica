@@ -1,10 +1,9 @@
-import 'package:sqflite_common_ffi/sqflite_ffi.dart'; // 支持桌面平台的 sqflite
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart';
 import 'dart:io';
-import 'package:logger/logger.dart'; // 可选：用于日志记录
+import 'package:logger/logger.dart';
 
-// 导入模型
 import '../models/song_model.dart';
 import '../models/playlist_model.dart';
 import '../models/settings_model.dart';
@@ -12,38 +11,33 @@ import '../models/settings_model.dart';
 class DatabaseService {
   static Database? _database;
   static const String dbName = 'justmusic.db';
-  final Logger _logger = Logger(); // 可选：日志记录
+  final Logger _logger = Logger();
 
-  // 静态初始化方法，用于设置 databaseFactory（桌面平台需要）
   static void init() {
     if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-      databaseFactory = databaseFactoryFfi; // 设置 FFI 数据库工厂
+      databaseFactory = databaseFactoryFfi;
     }
   }
 
-  // 获取数据库实例
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
-  // 初始化数据库
   Future<Database> _initDatabase() async {
     try {
-      // 获取应用文档目录
       Directory documentsDirectory = await getApplicationDocumentsDirectory();
       String path = join(documentsDirectory.path, 'JUSTMUSIC', 'db', dbName);
-
-      // 确保目录存在
       await Directory(dirname(path)).create(recursive: true);
-
-      // 打开数据库
       return await openDatabase(
         path,
-        version: 1,
+        version: 2, // 升级版本号以支持迁移
         onCreate: _onCreate,
         onUpgrade: _onUpgrade,
+        onOpen: (db) async {
+          await db.execute('PRAGMA foreign_keys = ON'); // 启用外键支持
+        },
       );
     } catch (e) {
       _logger.e('Failed to initialize database: $e');
@@ -68,12 +62,12 @@ class DatabaseService {
         )
       ''');
 
-      // 创建 Playlists 表
       await db.execute('''
         CREATE TABLE Playlists (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
           name TEXT NOT NULL,
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          cover_path TEXT
         )
       ''');
 
@@ -106,11 +100,15 @@ class DatabaseService {
     }
   }
 
-  // 数据库版本升级（未来扩展）
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // 示例：添加新列
     if (oldVersion < 2) {
-      await db.execute('ALTER TABLE Songs ADD COLUMN new_column TEXT');
+      try {
+        await db.execute('ALTER TABLE Playlists ADD COLUMN cover_path TEXT');
+        _logger.i('Added cover_path column to Playlists table');
+      } catch (e) {
+        _logger.e('Failed to upgrade database: $e');
+        rethrow;
+      }
     }
   }
 
