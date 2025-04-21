@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_musica/services/playback_service.dart';
 import 'package:provider/provider.dart';
 import '../widgets/navigation_bar.dart';
 import '../widgets/playback_control_bar.dart';
@@ -22,6 +23,7 @@ class _MainPageState extends State<MainPage> {
   DatabaseService? _dbService;
   FavoritesService? _favoritesService;
   PlaylistService? _playlistService;
+  PlaybackService? _playbackService;
   bool _isInitializing = true;
 
   List<Widget> get _pages {
@@ -31,8 +33,14 @@ class _MainPageState extends State<MainPage> {
 
     return [
       AllSongsPage(
-          favoritesService: _favoritesService!, databaseService: _dbService!),
-      FavoritesPage(favoritesService: _favoritesService!),
+        favoritesService: _favoritesService!,
+        databaseService: _dbService!,
+        playbackService: _playbackService!,
+      ),
+      FavoritesPage(
+        favoritesService: _favoritesService!,
+        playbackService: _playbackService!,
+      ),
       PlaylistsPage(
         playlistService: _playlistService!,
         favoritesService: _favoritesService!,
@@ -57,6 +65,7 @@ class _MainPageState extends State<MainPage> {
       // Initialize dependent services
       _favoritesService = FavoritesService(db);
       _playlistService = PlaylistService(db);
+      _playbackService = PlaybackService();
 
       setState(() {
         _isInitializing = false;

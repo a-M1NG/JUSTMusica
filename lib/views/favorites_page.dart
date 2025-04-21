@@ -6,10 +6,11 @@ import '../services/playback_service.dart';
 
 class FavoritesPage extends StatefulWidget {
   final FavoritesService favoritesService;
-
+  final PlaybackService playbackService;
   const FavoritesPage({
     super.key,
     required this.favoritesService,
+    required this.playbackService,
   });
 
   @override
@@ -81,13 +82,13 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   void _playSong(SongModel song) {
     // 使用缓存的收藏列表，不再重复访问数据库
-    PlaybackService().setPlaybackList(_favoriteSongs);
-    PlaybackService().playSong(song);
+    widget.playbackService.setPlaybackList(_favoriteSongs);
+    widget.playbackService.playSong(song);
   }
 
   void _addToNext(SongModel song) {
     // 调用后端接口将歌曲加入下一首播放
-    PlaybackService().playNext(song.id!);
+    widget.playbackService.playNext(song.id!);
   }
 
   void _toggleFavorite(SongModel song) {

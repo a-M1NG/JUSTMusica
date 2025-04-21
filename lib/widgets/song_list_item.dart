@@ -1,9 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../models/song_model.dart';
 import '../utils/thumbnail_generator.dart';
-import '../services/playlist_service.dart'; // 添加缺失的导入
+import '../services/playlist_service.dart';
+import '../services/database_service.dart';
 
 class SongListItem extends StatelessWidget {
   final SongModel song;
@@ -25,49 +25,97 @@ class SongListItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text(song.title ?? '未知曲名'),
-      subtitle: Text(song.artist ?? '未知歌手'),
-      trailing: SizedBox(
-        width: 200,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Expanded(child: Text(song.album ?? '未知专辑')),
-            IconButton(
-              icon: Icon(
-                song.isFavorite ? Icons.favorite : Icons.favorite_border,
-                size: 20,
-                color: song.isFavorite ? Colors.red : null,
+    return GestureDetector(
+      onDoubleTap: onPlay,
+      onSecondaryTapDown: (details) =>
+          _showContextMenu(context, details.globalPosition),
+      child: ListTile(
+        title: Text(song.title ?? '未知曲名'),
+        subtitle: Text(song.artist ?? '未知歌手'),
+        trailing: SizedBox(
+          width: 200,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Expanded(child: Text(song.album ?? '未知专辑')),
+              IconButton(
+                icon: Icon(
+                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  size: 20,
+                  color: song.isFavorite ? Colors.red : null,
+                ),
+                onPressed: onToggleFavorite,
               ),
-              onPressed: onToggleFavorite,
-            ),
-            Text(_formatDuration(song.duration)),
-          ],
+              Text(_formatDuration(song.duration)),
+            ],
+          ),
+        ),
+        leading: FutureBuilder<String>(
+          future: ThumbnailGenerator().getThumbnail(song.path),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(
+                    width: 40,
+                    height: 40,
+                    child: CircularProgressIndicator(strokeWidth: 2));
+              }
+              if (snapshot.hasError ||
+                  !snapshot.hasData ||
+                  snapshot.data!.isEmpty) {
+                return const Icon(Icons.music_note, size: 40);
+              }
+              return Image.file(
+                File(snapshot.data!),
+                width: 40,
+                height: 40,
+                errorBuilder: (_, __, ___) =>
+                    const Icon(Icons.music_note, size: 40),
+              );
+            }
+            return const Icon(Icons.music_note, size: 40);
+          },
         ),
       ),
-      leading: FutureBuilder<String>(
-        future: ThumbnailGenerator().getThumbnail(song.path),
-        builder: (context, snapshot) {
-          if (snapshot.hasData) {
-            return Image.file(File(snapshot.data!), width: 40, height: 40);
-          }
-          return const Icon(Icons.music_note, size: 40);
-        },
-      ),
-      onTap: onPlay,
-      onLongPress: () => _showContextMenu(context),
     );
   }
 
-  void _showContextMenu(BuildContext context) {
+  void _showContextMenu(BuildContext context, Offset position) {
+    final RenderBox overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    const double menuHeightEstimate = 200.0; // 估算菜单高度，可以根据实际菜单项调整
+
+    // 计算菜单的顶部位置，使其出现在点击位置的上方
+    double top = position.dy - menuHeightEstimate;
+    double left = position.dx;
+
+    // 确保菜单不会超出屏幕顶部
+    if (top < 0) {
+      top = position.dy; // 如果超出顶部，则显示在点击位置下方
+    }
+
+    // 确保菜单不会超出屏幕右侧
+    final screenWidth = overlay.size.width;
+    const double menuWidthEstimate = 150.0; // 估算菜单宽度，可以根据实际调整
+    if (left + menuWidthEstimate > screenWidth) {
+      left = screenWidth - menuWidthEstimate;
+    }
+
+    // 创建 RelativeRect，定义菜单位置
+    final RelativeRect relativeRect = RelativeRect.fromLTRB(
+      left,
+      top,
+      screenWidth - (left + menuWidthEstimate),
+      overlay.size.height - top - menuHeightEstimate,
+    );
+
     showMenu(
       context: context,
-      position: const RelativeRect.fromLTRB(100, 100, 100, 100),
+      position: relativeRect,
       items: [
         PopupMenuItem(
           onTap: onAddToNext,
-          child: const Text('下一首播放'), // 改为使用传入的回调方法
+          child: const Text('下一首播放'),
         ),
         PopupMenuItem(
           child: const Text('加入收藏夹'),
@@ -81,8 +129,73 @@ class SongListItem extends StatelessWidget {
   }
 
   void _showAddToPlaylistDialog(BuildContext context) async {
-    // 实现添加到播放列表的对话框
-    // 这里需要实现具体逻辑
+    var dbService = DatabaseService();
+    var playlistService = PlaylistService(await dbService.database);
+    final playlists = await playlistService.getPlaylists();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('添加到收藏夹'),
+            TextButton(
+              onPressed: () async {
+                final name = await _showNewPlaylistDialog(context);
+                if (name != null && name.isNotEmpty) {
+                  final newPlaylist =
+                      await playlistService.createPlaylist(name);
+                  await playlistService.addSongToPlaylist(
+                      newPlaylist.id!, song.id!);
+                }
+              },
+              child: const Text('新建收藏'),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: playlists.length,
+            itemBuilder: (context, index) {
+              final playlist = playlists[index];
+              return ListTile(
+                title: Text(playlist.name),
+                onTap: () {
+                  playlistService.addSongToPlaylist(playlist.id!, song.id!);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<String?> _showNewPlaylistDialog(BuildContext context) {
+    final controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('新建收藏夹'),
+        content: TextField(
+          controller: controller,
+          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, controller.text),
+            child: const Text('创建'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _formatDuration(int? duration) {

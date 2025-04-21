@@ -1,6 +1,5 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../models/song_model.dart';
 import '../services/database_service.dart';
 import '../services/music_scanner_service.dart';
@@ -12,9 +11,11 @@ class AllSongsPage extends StatefulWidget {
   const AllSongsPage(
       {super.key,
       required this.favoritesService,
-      required this.databaseService});
+      required this.databaseService,
+      required this.playbackService});
   final FavoritesService favoritesService;
   final DatabaseService databaseService;
+  final PlaybackService playbackService;
   @override
   State<AllSongsPage> createState() => _AllSongsPageState();
 }
@@ -38,8 +39,8 @@ class _AllSongsPageState extends State<AllSongsPage> {
       setState(() {
         _loadedSongs = songs;
       });
+      debugPrint("Loaded songs: ${_loadedSongs.length}");
     });
-    debugPrint("Loaded songs: ${_loadedSongs.length}");
   }
 
   Future<void> _importFolder() async {
@@ -140,19 +141,25 @@ class _AllSongsPageState extends State<AllSongsPage> {
 
   Future<void> _playSong(SongModel song) async {
     // 直接使用已加载的歌曲列表，不再重复访问数据库
-    PlaybackService().setPlaybackList(_loadedSongs);
-    PlaybackService().playSong(song);
+    widget.playbackService.setPlaybackList(_loadedSongs);
+    widget.playbackService.playSong(song);
   }
 
   void _addToNext(SongModel song) {
     // 调用后端接口将歌曲加入下一首播放
-    PlaybackService().playNext(song.id!);
+    widget.playbackService.playNext(song.id!);
   }
 
   void _toggleFavorite(SongModel song) {
     // 调用后端接口切换喜欢状态
+    final newFavoriteStatus = !song.isFavorite;
+
+    // 立即更新UI状态（乐观更新）
+    setState(() {
+      song.isFavorite = newFavoriteStatus;
+    });
     widget.favoritesService.toggleFavorite(song.id!);
-    _loadSongs(); // 重新加载歌曲列表以更新UI
+    // _loadSongs(); // 重新加载歌曲列表以更新UI
   }
 
   void _deleteSong(SongModel song) async {

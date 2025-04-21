@@ -8,7 +8,6 @@ import 'package:image/image.dart' as img;
 import 'package:path_provider/path_provider.dart';
 import 'package:audiotags/audiotags.dart';
 import '../services/database_service.dart';
-import '../models/song_model.dart';
 
 class ThumbnailGenerator {
   // 缩略图尺寸
@@ -74,7 +73,7 @@ class ThumbnailGenerator {
 
       // 转换为 jpg，不支持 webp 格式
 
-      final jpgData = img.encodeJpg(image, quality: 80);
+      final jpgData = img.encodeJpg(thumbnail, quality: 80);
 
       // 保存缩略图
       final thumbFile = File(thumbPath);

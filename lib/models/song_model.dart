@@ -6,7 +6,7 @@ class SongModel {
   final String? album;
   final int? duration;
   final String? coverPath;
-  final bool isFavorite;
+  bool isFavorite;
 
   SongModel({
     this.id,
