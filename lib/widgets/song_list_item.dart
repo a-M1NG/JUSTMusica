@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/song_model.dart';
-import '../services/thumbnail_generator.dart';
+import '../utils/thumbnail_generator.dart';
 import '../services/playlist_service.dart'; // 添加缺失的导入
 
 class SongListItem extends StatelessWidget {
@@ -35,11 +35,10 @@ class SongListItem extends StatelessWidget {
           children: [
             Expanded(child: Text(song.album ?? '未知专辑')),
             IconButton(
-              icon: SvgPicture.asset(
-                song.isFavorite
-                    ? 'assets/icons/favorite_filled.svg'
-                    : 'assets/icons/favorite.svg',
-                width: 20,
+              icon: Icon(
+                song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                size: 20,
+                color: song.isFavorite ? Colors.red : null,
               ),
               onPressed: onToggleFavorite,
             ),
@@ -57,7 +56,7 @@ class SongListItem extends StatelessWidget {
         },
       ),
       onTap: onPlay,
-      onSecondaryTap: () => _showContextMenu(context),
+      onLongPress: () => _showContextMenu(context),
     );
   }
 
@@ -67,15 +66,15 @@ class SongListItem extends StatelessWidget {
       position: const RelativeRect.fromLTRB(100, 100, 100, 100),
       items: [
         PopupMenuItem(
-          child: const Text('下一首播放'),
-          onTap: onAddToNext, // 改为使用传入的回调方法
+          onTap: onAddToNext,
+          child: const Text('下一首播放'), // 改为使用传入的回调方法
         ),
         PopupMenuItem(
           child: const Text('加入收藏夹'),
           onTap: () => _showAddToPlaylistDialog(context),
         ),
-        PopupMenuItem(child: const Text('播放'), onTap: onPlay),
-        PopupMenuItem(child: const Text('删除'), onTap: onDelete),
+        PopupMenuItem(onTap: onPlay, child: const Text('播放')),
+        PopupMenuItem(onTap: onDelete, child: const Text('删除')),
       ],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );

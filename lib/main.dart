@@ -6,9 +6,8 @@ import 'services/theme_service.dart';
 import 'views/main_page.dart';
 
 void main() async {
+  DatabaseService.init();
   WidgetsFlutterBinding.ensureInitialized();
-  // 初始化数据库（请确保此处调用的是公有方法，如果之前方法名为 _initDatabase，需要改为 initDatabase）
-  await DatabaseService().initDatabase();
   runApp(const MyApp());
 }
 
@@ -39,7 +38,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => PlaybackService()),
+        ChangeNotifierProvider<PlaybackService>(
+            create: (_) => PlaybackService()),
         ChangeNotifierProvider(create: (_) => ThemeService()),
       ],
       child: Consumer<ThemeService>(

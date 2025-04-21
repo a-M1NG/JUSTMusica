@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../services/playback_service.dart';
 import '../widgets/song_list_item.dart';
+import '../services/favorites_service.dart';
 
 class PlaybackListPage extends StatefulWidget {
-  const PlaybackListPage({super.key});
-
+  const PlaybackListPage({super.key, required this.favoritesService});
+  final FavoritesService favoritesService;
   @override
   State<PlaybackListPage> createState() => _PlaybackListPageState();
 }
@@ -43,14 +44,7 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
         if (songs.isEmpty) {
           return const Center(child: Text('播放列表为空'));
         }
-        return ReorderableListView(
-          onReorder: (oldIndex, newIndex) {
-            if (newIndex > oldIndex) newIndex--;
-            PlaybackService().reorderPlaybackList(oldIndex, newIndex);
-            setState(() {
-              _playbackListFuture = PlaybackService().getPlaybackList();
-            });
-          },
+        return ListView(
           children: songs.asMap().entries.map((entry) {
             final index = entry.key;
             final song = entry.value;
@@ -83,7 +77,7 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
 
   void _toggleFavorite(SongModel song) {
     // 调用后端接口切换喜欢状态
-    FavoritesService().toggleFavorite(song.id!);
+    widget.favoritesService.toggleFavorite(song.id!);
     setState(() {
       _playbackListFuture = PlaybackService().getPlaybackList();
     });

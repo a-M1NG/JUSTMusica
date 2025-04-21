@@ -93,7 +93,8 @@ class DatabaseService {
 
       // 创建索引以提高查询性能
       await db.execute('CREATE INDEX idx_songs_path ON Songs(path)');
-      await db.execute('CREATE INDEX idx_playlistsongs_added_at ON PlaylistSongs(added_at)');
+      await db.execute(
+          'CREATE INDEX idx_playlistsongs_added_at ON PlaylistSongs(added_at)');
     } catch (e) {
       _logger.e('Failed to create tables: $e');
       rethrow;
@@ -136,7 +137,8 @@ class DatabaseService {
       for (var song in songs) {
         await txn.insert(
           'Songs',
-          song.toMap()..removeWhere((key, value) => key == 'id' && value == null),
+          song.toMap()
+            ..removeWhere((key, value) => key == 'id' && value == null),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
       }
@@ -230,7 +232,8 @@ class DatabaseService {
     try {
       await db.insert(
         'Playlists',
-        playlist.toMap()..removeWhere((key, value) => key == 'id' && value == null),
+        playlist.toMap()
+          ..removeWhere((key, value) => key == 'id' && value == null),
         conflictAlgorithm: ConflictAlgorithm.replace,
       );
     } catch (e) {

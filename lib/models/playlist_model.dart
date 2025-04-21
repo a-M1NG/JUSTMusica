@@ -35,5 +35,6 @@ class PlaylistModel {
   }
 
   @override
-  String toString() => 'Playlist(id: $id, name: $name, coverPath: $coverPath, songs: ${songs?.length ?? 0})';
+  String toString() =>
+      'Playlist(id: $id, name: $name, coverPath: $coverPath, songs: ${songs?.length ?? 0})';
 }

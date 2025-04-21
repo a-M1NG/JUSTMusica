@@ -1,15 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../services/playlist_service.dart';
+import '../models/playlist_model.dart';
+import '../views/playlist_detail_page.dart';
+import '../services/favorites_service.dart';
 
 class NavigationBarWidget extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-
+  final PlaylistService playlistService;
+  final FavoritesService favoritesService;
   const NavigationBarWidget({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
+    required this.playlistService,
+    required this.favoritesService,
   });
 
   @override
@@ -26,18 +32,18 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       color: Theme.of(context).primaryColor.withOpacity(0.1),
       child: Column(
         children: [
-          _buildNavItem(0, '所有歌曲', 'assets/icons/songs.svg'),
-          _buildNavItem(1, '我喜欢', 'assets/icons/favorite.svg'),
+          _buildNavItem(0, '所有歌曲', Icons.library_music),
+          _buildNavItem(1, '我喜欢', Icons.favorite),
           _buildPlaylistsSection(),
-          _buildNavItem(3, '播放列表', 'assets/icons/playlist.svg'),
+          _buildNavItem(3, '播放列表', Icons.queue_music),
         ],
       ),
     );
   }
 
-  Widget _buildNavItem(int index, String title, String iconPath) {
+  Widget _buildNavItem(int index, String title, IconData iconData) {
     return ListTile(
-      leading: SvgPicture.asset(iconPath, width: 24, height: 24),
+      leading: Icon(iconData, size: 24),
       title: Text(title),
       selected: widget.selectedIndex == index,
       onTap: () => widget.onItemTapped(index),
@@ -46,8 +52,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
 
   Widget _buildPlaylistsSection() {
     return ExpansionTile(
-      leading:
-          SvgPicture.asset('assets/icons/playlists.svg', width: 24, height: 24),
+      leading: const Icon(Icons.folder_special, size: 24),
       title: const Text('收藏夹'),
       onExpansionChanged: (expanded) {
         setState(() {
@@ -59,8 +64,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
         children: [
           if (_playlistsExpanded)
             IconButton(
-              icon: SvgPicture.asset('assets/icons/add.svg',
-                  width: 20, height: 20),
+              icon: const Icon(Icons.add, size: 20),
               onPressed: _createNewPlaylist,
             ),
           const Icon(Icons.expand_more),
@@ -69,7 +73,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       children: [
         // 这里调用后端接口获取收藏夹列表
         FutureBuilder<List<PlaylistModel>>(
-          future: PlaylistService().getPlaylists(),
+          future: widget.playlistService.getPlaylists(),
           builder: (context, snapshot) {
             if (!snapshot.hasData) return const SizedBox();
             final playlists = snapshot.data!;
@@ -86,8 +90,10 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                                builder: (_) =>
-                                    PlaylistDetailPage(playlist: playlist)),
+                                builder: (_) => PlaylistDetailPage(
+                                    playlist: playlist,
+                                    playlistService: widget.playlistService,
+                                    favoritesService: widget.favoritesService)),
                           );
                         },
                       ))
@@ -103,7 +109,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     final name = await _showNewPlaylistDialog(context);
     if (name != null) {
       // 调用后端接口创建收藏夹
-      await PlaylistService().createPlaylist(name);
+      await widget.playlistService.createPlaylist(name);
       setState(() {});
     }
   }

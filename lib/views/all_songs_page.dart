@@ -6,30 +6,48 @@ import '../services/database_service.dart';
 import '../services/music_scanner_service.dart';
 import '../widgets/song_list_item.dart';
 import '../services/playback_service.dart';
+import '../services/favorites_service.dart';
 
 class AllSongsPage extends StatefulWidget {
-  const AllSongsPage({super.key});
-
+  const AllSongsPage(
+      {super.key,
+      required this.favoritesService,
+      required this.databaseService});
+  final FavoritesService favoritesService;
+  final DatabaseService databaseService;
   @override
   State<AllSongsPage> createState() => _AllSongsPageState();
 }
 
 class _AllSongsPageState extends State<AllSongsPage> {
   late Future<List<SongModel>> _songsFuture;
+  List<SongModel> _loadedSongs = []; // 存储已加载的歌曲列表
 
   @override
   void initState() {
     super.initState();
-    _songsFuture = DatabaseService().getAllSongs();
+    _loadSongs();
+  }
+
+  // 加载歌曲并缓存
+  Future<void> _loadSongs() async {
+    debugPrint("Loading songs...");
+    _songsFuture = widget.databaseService.getAllSongs();
+    // 当歌曲加载完成后，保存到本地变量中
+    _songsFuture.then((songs) {
+      setState(() {
+        _loadedSongs = songs;
+      });
+    });
+    debugPrint("Loaded songs: ${_loadedSongs.length}");
   }
 
   Future<void> _importFolder() async {
     final result = await FilePicker.platform.getDirectoryPath();
     if (result != null) {
-      await MusicScannerService().scanMusic(result);
-      setState(() {
-        _songsFuture = DatabaseService().getAllSongs();
-      });
+      var songList = await MusicScannerService().scanMusic(result);
+      widget.databaseService.batchInsertSongs(songList);
+      _loadSongs(); // 重新加载歌曲列表
     }
   }
 
@@ -42,9 +60,7 @@ class _AllSongsPageState extends State<AllSongsPage> {
       final paths =
           result.paths.where((path) => path != null).cast<String>().toList();
       await MusicScannerService().importSongs(paths);
-      setState(() {
-        _songsFuture = DatabaseService().getAllSongs();
-      });
+      _loadSongs(); // 重新加载歌曲列表
     }
   }
 
@@ -58,8 +74,7 @@ class _AllSongsPageState extends State<AllSongsPage> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               ElevatedButton.icon(
-                icon: SvgPicture.asset('assets/icons/folder.svg',
-                    width: 20, height: 20),
+                icon: Icon(Icons.folder, size: 20),
                 label: const Text('导入文件夹'),
                 onPressed: _importFolder,
                 style: ElevatedButton.styleFrom(
@@ -69,8 +84,7 @@ class _AllSongsPageState extends State<AllSongsPage> {
               ),
               const SizedBox(width: 8),
               ElevatedButton.icon(
-                icon: SvgPicture.asset('assets/icons/music_note.svg',
-                    width: 20, height: 20),
+                icon: Icon(Icons.music_note, size: 20),
                 label: const Text('导入歌曲'),
                 onPressed: _importSongs,
                 style: ElevatedButton.styleFrom(
@@ -124,9 +138,9 @@ class _AllSongsPageState extends State<AllSongsPage> {
     );
   }
 
-  void _playSong(SongModel song) {
-    // 调用后端接口播放歌曲并设置播放列表
-    PlaybackService().setPlaybackList([song]);
+  Future<void> _playSong(SongModel song) async {
+    // 直接使用已加载的歌曲列表，不再重复访问数据库
+    PlaybackService().setPlaybackList(_loadedSongs);
     PlaybackService().playSong(song);
   }
 
@@ -137,10 +151,8 @@ class _AllSongsPageState extends State<AllSongsPage> {
 
   void _toggleFavorite(SongModel song) {
     // 调用后端接口切换喜欢状态
-    FavoritesService().toggleFavorite(song.id!);
-    setState(() {
-      _songsFuture = DatabaseService().getAllSongs();
-    });
+    widget.favoritesService.toggleFavorite(song.id!);
+    _loadSongs(); // 重新加载歌曲列表以更新UI
   }
 
   void _deleteSong(SongModel song) async {
@@ -149,9 +161,7 @@ class _AllSongsPageState extends State<AllSongsPage> {
       // 调用后端接口删除歌曲
       await DatabaseService()
           .deleteSong(song.id!, deleteFile: shouldDeleteFile);
-      setState(() {
-        _songsFuture = DatabaseService().getAllSongs();
-      });
+      _loadSongs(); // 重新加载歌曲列表
     }
   }
 

@@ -3,11 +3,19 @@ import '../models/playlist_model.dart';
 import '../models/song_model.dart';
 import '../services/playlist_service.dart';
 import '../widgets/song_list_item.dart';
+import '../services/playback_service.dart';
+import '../services/favorites_service.dart';
 
 class PlaylistDetailPage extends StatefulWidget {
   final PlaylistModel playlist;
-
-  const PlaylistDetailPage({super.key, required this.playlist});
+  final PlaylistService playlistService;
+  final FavoritesService favoritesService;
+  const PlaylistDetailPage({
+    super.key,
+    required this.playlist,
+    required this.playlistService,
+    required this.favoritesService,
+  });
 
   @override
   State<PlaylistDetailPage> createState() => _PlaylistDetailPageState();
@@ -19,7 +27,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   @override
   void initState() {
     super.initState();
-    _songsFuture = PlaylistService().getPlaylistSongs(widget.playlist.id!);
+    _songsFuture = widget.playlistService.getPlaylistSongs(widget.playlist.id!);
   }
 
   @override
@@ -78,19 +86,21 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
   }
 
   void _toggleFavorite(SongModel song) {
-    FavoritesService().toggleFavorite(song.id!);
+    widget.favoritesService.toggleFavorite(song.id!);
     setState(() {
-      _songsFuture = PlaylistService().getPlaylistSongs(widget.playlist.id!);
+      _songsFuture =
+          widget.playlistService.getPlaylistSongs(widget.playlist.id!);
     });
   }
 
   void _removeFromPlaylist(SongModel song) async {
     final confirm = await _showRemoveDialog(context);
     if (confirm == true) {
-      await PlaylistService()
+      await widget.playlistService
           .removeSongFromPlaylist(widget.playlist.id!, song.id!);
       setState(() {
-        _songsFuture = PlaylistService().getPlaylistSongs(widget.playlist.id!);
+        _songsFuture =
+            widget.playlistService.getPlaylistSongs(widget.playlist.id!);
       });
     }
   }

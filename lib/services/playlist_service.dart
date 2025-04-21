@@ -167,7 +167,11 @@ class PlaylistService {
             );
             await _database.update(
               'Playlists',
-              {'cover_path': latestSong.isNotEmpty ? latestSong.first['cover_path'] : null},
+              {
+                'cover_path': latestSong.isNotEmpty
+                    ? latestSong.first['cover_path']
+                    : null
+              },
               where: 'id = ?',
               whereArgs: [playlistId],
             );
@@ -208,7 +212,8 @@ class PlaylistService {
   }
 
   /// 获取收藏夹歌曲列表，支持排序（"added_at" 或 "title"）
-  Future<List<SongModel>> getPlaylistSongs(int playlistId, {String? sortBy}) async {
+  Future<List<SongModel>> getPlaylistSongs(int playlistId,
+      {String? sortBy}) async {
     try {
       // 验证收藏夹是否存在
       final playlistExists = await _database.query(

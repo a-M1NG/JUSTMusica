@@ -49,7 +49,8 @@ class FavoritesService {
         whereArgs: [songId],
       );
 
-      _logger.i('Toggled favorite status for song $songId to $newFavoriteStatus');
+      _logger
+          .i('Toggled favorite status for song $songId to $newFavoriteStatus');
     } catch (e) {
       _logger.e('Failed to toggle favorite for song $songId: $e');
       rethrow;

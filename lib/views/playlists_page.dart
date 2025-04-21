@@ -1,12 +1,19 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../models/playlist_model.dart';
 import '../services/playlist_service.dart';
 import 'playlist_detail_page.dart';
+import '../services/favorites_service.dart';
 
 class PlaylistsPage extends StatefulWidget {
-  const PlaylistsPage({super.key});
-
+  const PlaylistsPage({
+    super.key,
+    required this.playlistService,
+    required this.favoritesService,
+  });
+  final PlaylistService playlistService;
+  final FavoritesService favoritesService;
   @override
   State<PlaylistsPage> createState() => _PlaylistsPageState();
 }
@@ -17,15 +24,15 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
   @override
   void initState() {
     super.initState();
-    _playlistsFuture = PlaylistService().getPlaylists();
+    _playlistsFuture = widget.playlistService.getPlaylists();
   }
 
   Future<void> _createNewPlaylist() async {
     final name = await _showNewPlaylistDialog(context);
     if (name != null) {
-      await PlaylistService().createPlaylist(name);
+      await widget.playlistService.createPlaylist(name);
       setState(() {
-        _playlistsFuture = PlaylistService().getPlaylists();
+        _playlistsFuture = widget.playlistService.getPlaylists();
       });
     }
   }
@@ -40,8 +47,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               ElevatedButton.icon(
-                icon: SvgPicture.asset('assets/icons/add.svg',
-                    width: 20, height: 20),
+                icon: Icon(Icons.add),
                 label: const Text('新建收藏夹'),
                 onPressed: _createNewPlaylist,
                 style: ElevatedButton.styleFrom(
@@ -89,8 +95,10 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (_) =>
-                              PlaylistDetailPage(playlist: playlist),
+                          builder: (_) => PlaylistDetailPage(
+                              playlist: playlist,
+                              playlistService: widget.playlistService,
+                              favoritesService: widget.favoritesService),
                         ),
                       );
                     },

@@ -1,13 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../models/song_model.dart';
 import '../services/playback_service.dart';
 import '../services/playlist_service.dart';
+import '../services/favorites_service.dart';
+import 'package:marquee/marquee.dart';
+import '../views/song_play_page.dart';
 
 class PlaybackControlBar extends StatelessWidget {
-  const PlaybackControlBar({super.key});
-
+  const PlaybackControlBar({
+    super.key,
+    required this.playlistService,
+    required this.favoritesService,
+  });
+  final PlaylistService playlistService;
+  final FavoritesService favoritesService;
   @override
   Widget build(BuildContext context) {
     final playbackService = Provider.of<PlaybackService>(context);
@@ -24,9 +32,10 @@ class PlaybackControlBar extends StatelessWidget {
           color: Theme.of(context).primaryColor.withOpacity(0.05),
           child: Row(
             children: [
-              _buildSongInfo(song),
-              Expanded(child: _buildProgressBar(state)),
-              _buildControls(context, playbackService, song),
+              _buildSongInfo(context, song),
+              Expanded(
+                  child: _buildProgressBar(context, state!, playbackService)),
+              _buildControls(context, playbackService, state, song),
             ],
           ),
         );
@@ -34,7 +43,7 @@ class PlaybackControlBar extends StatelessWidget {
     );
   }
 
-  Widget _buildSongInfo(SongModel song) {
+  Widget _buildSongInfo(BuildContext context, SongModel song) {
     return GestureDetector(
       onTap: () {
         // 切换到歌曲播放页面
@@ -61,7 +70,8 @@ class PlaybackControlBar extends StatelessWidget {
     );
   }
 
-  Widget _buildProgressBar(PlaybackState state) {
+  Widget _buildProgressBar(BuildContext context, PlaybackState state,
+      PlaybackService playbackService) {
     return Slider(
       value: state.position.inSeconds.toDouble(),
       max: state.duration.inSeconds.toDouble(),
@@ -71,48 +81,50 @@ class PlaybackControlBar extends StatelessWidget {
     );
   }
 
-  Widget _buildControls(
-      BuildContext context, PlaybackService playbackService, SongModel song) {
+  Widget _buildControls(BuildContext context, PlaybackService playbackService,
+      PlaybackState state, SongModel song) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
-          icon: SvgPicture.asset('assets/icons/previous.svg', width: 24),
+          icon: const Icon(Icons.skip_previous),
           onPressed: playbackService.previous,
         ),
         IconButton(
-          icon: SvgPicture.asset(
-            state.isPlaying
-                ? 'assets/icons/pause.svg'
-                : 'assets/icons/play.svg',
-            width: 24,
+          icon: Icon(
+            state.isPlaying ? Icons.pause : Icons.play_arrow,
           ),
           onPressed:
               state.isPlaying ? playbackService.pause : playbackService.resume,
         ),
         IconButton(
-          icon: SvgPicture.asset('assets/icons/next.svg', width: 24),
+          icon: const Icon(Icons.skip_next),
           onPressed: playbackService.next,
         ),
         IconButton(
-          icon: SvgPicture.asset(
-            song.isFavorite
-                ? 'assets/icons/favorite_filled.svg'
-                : 'assets/icons/favorite.svg',
-            width: 24,
+          icon: Icon(
+            song.isFavorite ? Icons.favorite : Icons.favorite_border,
+            color: song.isFavorite ? Colors.red : null,
           ),
-          onPressed: () => playbackService.toggleFavorite(song.id),
+          onPressed: () => _toggleFavorite(context, song),
         ),
         IconButton(
-          icon: SvgPicture.asset('assets/icons/add_to_playlist.svg', width: 24),
+          icon: const Icon(Icons.playlist_add),
           onPressed: () => _showAddToPlaylistDialog(context, song),
         ),
       ],
     );
   }
 
+  void _toggleFavorite(BuildContext context, SongModel song) {
+    // 实现切换收藏状态的逻辑
+    final favoritesService =
+        Provider.of<FavoritesService>(context, listen: false);
+    favoritesService.toggleFavorite(song.id!);
+  }
+
   void _showAddToPlaylistDialog(BuildContext context, SongModel song) async {
-    final playlists = await PlaylistService().getPlaylists();
+    final playlists = await playlistService.getPlaylists();
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -125,9 +137,9 @@ class PlaybackControlBar extends StatelessWidget {
                 final name = await _showNewPlaylistDialog(context);
                 if (name != null) {
                   final newPlaylist =
-                      await PlaylistService().createPlaylist(name);
-                  await PlaylistService()
-                      .addSongToPlaylist(newPlaylist.id!, song.id!);
+                      await playlistService.createPlaylist(name);
+                  await playlistService.addSongToPlaylist(
+                      newPlaylist.id!, song.id!);
                 }
               },
               child: const Text('新建收藏'),
@@ -142,9 +154,10 @@ class PlaybackControlBar extends StatelessWidget {
             itemBuilder: (context, index) {
               final playlist = playlists[index];
               return ListTile(
+                leading: const Icon(Icons.playlist_play),
                 title: Text(playlist.name),
                 onTap: () {
-                  PlaylistService().addSongToPlaylist(playlist.id!, song.id!);
+                  playlistService.addSongToPlaylist(playlist.id!, song.id!);
                   Navigator.pop(context);
                 },
               );

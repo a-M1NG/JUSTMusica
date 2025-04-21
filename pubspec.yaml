@@ -17,6 +17,7 @@ dependencies:
   scrollable_positioned_list: ^0.3.8  # 歌词滚动显示
   cached_network_image: ^3.4.1  # 封面缓存加载
   shared_preferences: ^2.5.3  # 应用设置存储
+  marquee: ^2.0.0         # 歌词跑马灯效果
 
   # 文件与存储
   path_provider: ^2.1.5    # 获取应用目录

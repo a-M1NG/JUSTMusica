@@ -2,9 +2,15 @@ import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../services/favorites_service.dart';
 import '../widgets/song_list_item.dart';
+import '../services/playback_service.dart';
 
 class FavoritesPage extends StatefulWidget {
-  const FavoritesPage({super.key});
+  final FavoritesService favoritesService;
+
+  const FavoritesPage({
+    super.key,
+    required this.favoritesService,
+  });
 
   @override
   State<FavoritesPage> createState() => _FavoritesPageState();
@@ -12,11 +18,24 @@ class FavoritesPage extends StatefulWidget {
 
 class _FavoritesPageState extends State<FavoritesPage> {
   late Future<List<SongModel>> _favoritesFuture;
+  List<SongModel> _favoriteSongs = []; // 存储已加载的收藏歌曲列表
 
   @override
   void initState() {
     super.initState();
-    _favoritesFuture = FavoritesService().getFavoriteSongs();
+    _loadFavorites();
+  }
+
+  // 加载收藏歌曲并缓存
+  Future<void> _loadFavorites() async {
+    // 使用通过构造函数注入的服务
+    _favoritesFuture = widget.favoritesService.getFavoriteSongs();
+    // 当歌曲加载完成后，保存到本地变量中
+    _favoritesFuture.then((songs) {
+      setState(() {
+        _favoriteSongs = songs;
+      });
+    });
   }
 
   @override
@@ -61,8 +80,8 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void _playSong(SongModel song) {
-    // 调用后端接口播放歌曲并设置播放列表
-    PlaybackService().setPlaybackList([song]);
+    // 使用缓存的收藏列表，不再重复访问数据库
+    PlaybackService().setPlaybackList(_favoriteSongs);
     PlaybackService().playSong(song);
   }
 
@@ -72,21 +91,16 @@ class _FavoritesPageState extends State<FavoritesPage> {
   }
 
   void _toggleFavorite(SongModel song) {
-    // 调用后端接口切换喜欢状态
-    FavoritesService().toggleFavorite(song.id!);
-    setState(() {
-      _favoritesFuture = FavoritesService().getFavoriteSongs();
-    });
+    widget.favoritesService.toggleFavorite(song.id!);
+    _loadFavorites(); // 重新加载收藏列表
   }
 
   void _removeFavorite(SongModel song) async {
     final confirm = await _showRemoveDialog(context);
     if (confirm == true) {
       // 调用后端接口移除喜欢
-      await FavoritesService().toggleFavorite(song.id!);
-      setState(() {
-        _favoritesFuture = FavoritesService().getFavoriteSongs();
-      });
+      await widget.favoritesService.toggleFavorite(song.id!);
+      _loadFavorites(); // 重新加载收藏列表
     }
   }
 
@@ -95,7 +109,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('移除喜欢的歌曲'),
-        content: const Text('是否从“我喜欢”中移除此歌曲？'),
+        content: const Text('是否从"我喜欢"中移除此歌曲？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
