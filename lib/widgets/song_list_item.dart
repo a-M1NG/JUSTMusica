@@ -32,7 +32,7 @@ class SongListItem extends StatelessWidget {
         hoverColor: Colors.grey.withOpacity(0.1),
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        onTap: onPlay,
+        onTap: doNothing,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -226,4 +226,6 @@ class SongListItem extends StatelessWidget {
     final seconds = (duration % 60).toString().padLeft(2, '0');
     return '$minutes:$seconds';
   }
+
+  void doNothing() {}
 }
