@@ -20,8 +20,9 @@ class ThumbnailGenerator {
     }
 
     final filePath = await getThumbnail(songPath);
-    if (filePath.isEmpty)
+    if (filePath.isEmpty) {
       return const AssetImage('assets/images/default_cover.jpg');
+    }
 
     final provider = FileImage(File(filePath));
     _imageCache[songPath] = provider;
@@ -35,19 +36,19 @@ class ThumbnailGenerator {
       final coverData = tag?.pictures.firstOrNull?.bytes;
 
       if (coverData == null || coverData.isEmpty) {
-        return Image.asset('assets/images/default_cover.png'); // 默认封面
+        return Image.asset('assets/images/default_cover.jpg'); // 默认封面
       }
       // 解码图像
       final image = img.decodeImage(coverData);
       if (image == null) {
-        return Image.asset('assets/images/default_cover.png'); // 默认封面
+        return Image.asset('assets/images/default_cover.jpg'); // 默认封面
       }
 
       // Convert img.Image to Flutter Image widget
       return Image.memory(Uint8List.fromList(img.encodePng(image)));
     } catch (e) {
       print('获取封面失败: $e');
-      return Image.asset('assets/images/default_cover.png'); // 默认封面
+      return Image.asset('assets/images/default_cover.jpg'); // 默认封面
     }
   }
 
