@@ -21,14 +21,12 @@ class PlaybackState {
   final Duration position;
   final Duration duration;
   final bool isPlaying;
-  final PlaybackMode mode;
 
   PlaybackState({
     this.currentSong,
     this.position = Duration.zero,
     this.duration = Duration.zero,
     this.isPlaying = false,
-    this.mode = PlaybackMode.sequential,
   });
 }
 
@@ -37,18 +35,30 @@ class PlaybackService extends ChangeNotifier {
       AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
   final DatabaseService _dbService = DatabaseService();
   final Logger _logger = Logger();
+  //PlaybackMode的getter和setter:
+  PlaybackMode get playbackMode => _playbackMode;
+  set playbackMode(PlaybackMode mode) {
+    _playbackMode = mode;
+    // _updatePlaybackState();
+    // notifyListeners();
+  }
 
   final _playbackStateSubject = BehaviorSubject<PlaybackState>();
   Stream<PlaybackState> get playbackStateStream => _playbackStateSubject.stream;
-
+  SongModel get currentSong =>
+      _playbackStateSubject.valueOrNull?.currentSong ??
+      SongModel(path: "assets/audio/sample.mp3"); // 获取当前播放的歌曲
   List<SongModel> _currentPlaylist = [];
   List<SongModel> _playNextSongs = [];
   int _currentIndex = -1;
   PlaybackMode _playbackMode = PlaybackMode.sequential;
-
+  List<SongModel> get currentPlaylist => _playNextSongs + _currentPlaylist;
   PlaybackService() {
     _init();
   }
+
+  get currentSongStream =>
+      _playbackStateSubject.stream.map((state) => state.currentSong).distinct();
 
   void _init() {
     // 监听播放位置
@@ -87,7 +97,7 @@ class PlaybackService extends ChangeNotifier {
       position: position ?? currentState.position,
       duration: duration ?? currentState.duration,
       isPlaying: isPlaying ?? currentState.isPlaying,
-      mode: _playbackMode,
+      // mode: _playbackMode,
     ));
   }
 
@@ -142,7 +152,7 @@ class PlaybackService extends ChangeNotifier {
     return _currentIndex;
   }
 
-  Future<void> playSong(SongModel song) async {
+  Future<void> playSong(SongModel song, {bool fromPlayNext = false}) async {
     try {
       // Windows 平台临时检查（可选）
       if (Platform.isWindows) {
@@ -153,10 +163,12 @@ class PlaybackService extends ChangeNotifier {
         _currentPlaylist = await _dbService.getAllSongs();
       }
 
-      _currentIndex = _currentPlaylist.indexWhere((s) => s.path == song.path);
-      if (_currentIndex == -1) {
-        _currentPlaylist.add(song);
-        _currentIndex = _currentPlaylist.length - 1;
+      if (!fromPlayNext) {
+        _currentIndex = _currentPlaylist.indexWhere((s) => s.path == song.path);
+        if (_currentIndex == -1) {
+          _currentPlaylist.add(song);
+          _currentIndex = _currentPlaylist.length - 1;
+        }
       }
 
       // 使用 audioplayers 播放本地文件
@@ -199,7 +211,7 @@ class PlaybackService extends ChangeNotifier {
       // 先从 playNextSongs 中取出歌曲，优先播放
       if (_playNextSongs.isNotEmpty) {
         final nextSong = _playNextSongs.removeAt(0);
-        await playSong(nextSong);
+        await playSong(nextSong, fromPlayNext: true);
         _logger.i('Playing next song from playNextSongs: ${nextSong.title}');
         return;
       }
@@ -210,7 +222,11 @@ class PlaybackService extends ChangeNotifier {
       }
 
       if (_playbackMode == PlaybackMode.random) {
-        _currentIndex = Random().nextInt(_currentPlaylist.length);
+        final tmp = _currentIndex;
+        // 随机选择一个索引，确保不重复
+        while (tmp == _currentIndex) {
+          _currentIndex = Random().nextInt(_currentPlaylist.length);
+        }
       } else {
         _currentIndex = (_currentIndex + 1) % _currentPlaylist.length;
       }
@@ -249,9 +265,9 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> setPlaybackMode(PlaybackMode mode) async {
     _playbackMode = mode;
-    _updatePlaybackState();
+    // _updatePlaybackState();
     _logger.i('Playback mode set to $mode');
-    notifyListeners();
+    // notifyListeners();
   }
 
   Future<void> seekTo(int seconds) async {
@@ -265,10 +281,20 @@ class PlaybackService extends ChangeNotifier {
     }
   }
 
+  Future<void> seeking(int pos) async {
+    _updatePlaybackState(
+      position: Duration(seconds: pos),
+    );
+    notifyListeners();
+  }
+
   Future<void> _handleSongCompletion() async {
     if (_playbackMode == PlaybackMode.singleLoop) {
-      await _audioPlayer.seek(Duration.zero);
-      await _audioPlayer.resume();
+      // await _audioPlayer.seek(Duration.zero);
+      // await _audioPlayer.resume();
+      final currsong = _currentPlaylist[_currentIndex];
+      await playSong(currsong);
+      _logger.i('Playing song in single loop: ${currsong.title}');
     } else if (_playbackMode == PlaybackMode.loopAll) {
       await next();
     } else if (_playbackMode == PlaybackMode.sequential &&

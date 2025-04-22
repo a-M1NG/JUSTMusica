@@ -5,8 +5,13 @@ import '../widgets/song_list_item.dart';
 import '../services/favorites_service.dart';
 
 class PlaybackListPage extends StatefulWidget {
-  const PlaybackListPage({super.key, required this.favoritesService});
+  const PlaybackListPage({
+    super.key,
+    required this.favoritesService,
+    required this.playbackService,
+  });
   final FavoritesService favoritesService;
+  final PlaybackService playbackService;
   @override
   State<PlaybackListPage> createState() => _PlaybackListPageState();
 }
@@ -17,30 +22,15 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
   @override
   void initState() {
     super.initState();
-    _playbackListFuture = PlaybackService().getPlaybackList();
+    _playbackListFuture = widget.playbackService.getPlaybackList();
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<SongModel>>(
-      future: _playbackListFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('正在加载...'),
-              ],
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('加载失败: ${snapshot.error}'));
-        }
-        final songs = snapshot.data ?? [];
+    return ListenableBuilder(
+      listenable: widget.playbackService,
+      builder: (context, _) {
+        final songs = widget.playbackService.currentPlaylist;
         if (songs.isEmpty) {
           return const Center(child: Text('播放列表为空'));
         }
@@ -67,19 +57,19 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
 
   void _playSong(SongModel song) {
     // 调用后端接口播放歌曲
-    PlaybackService().playSong(song);
+    widget.playbackService.playSong(song);
   }
 
   void _addToNext(SongModel song) {
     // 调用后端接口将歌曲加入下一首播放
-    PlaybackService().playNext(song.id!);
+    widget.playbackService.playNext(song.id!);
   }
 
   void _toggleFavorite(SongModel song) {
     // 调用后端接口切换喜欢状态
     widget.favoritesService.toggleFavorite(song.id!);
     setState(() {
-      _playbackListFuture = PlaybackService().getPlaybackList();
+      _playbackListFuture = widget.playbackService.getPlaybackList();
     });
   }
 
@@ -87,11 +77,11 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
     final confirm = await _showRemoveDialog(context);
     if (confirm == true) {
       // 调用后端接口移除歌曲
-      await PlaybackService().setPlaybackList(
+      await widget.playbackService.setPlaybackList(
         (await _playbackListFuture).where((s) => s.id != song.id).toList(),
       );
       setState(() {
-        _playbackListFuture = PlaybackService().getPlaybackList();
+        _playbackListFuture = widget.playbackService.getPlaybackList();
       });
     }
   }

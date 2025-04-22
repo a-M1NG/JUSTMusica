@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,11 +11,11 @@ import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
 
 class SongPlayPage extends StatefulWidget {
-  final SongModel song;
+  SongModel song;
   final PlaybackService playbackService;
   final FavoritesService favoritesService;
   final PlaylistService playlistService;
-  const SongPlayPage({
+  SongPlayPage({
     super.key,
     required this.song,
     required this.playbackService,
@@ -27,20 +28,48 @@ class SongPlayPage extends StatefulWidget {
 }
 
 class _SongPlayPageState extends State<SongPlayPage> {
+  late StreamSubscription _currentSongSubscription;
   late Future<String> _lyricsFuture;
-  Color _backgroundColor = Colors.grey; // 默认底色，待后端提供封面颜色提取
+  late ValueNotifier<PlaybackMode> _playbackModeNotifier;
 
+  Color _backgroundColor = Colors.blue;
+  SongModel? _currentSong;
+  PlaybackMode _currentPlayBackMode = PlaybackMode.sequential;
   @override
   void initState() {
     super.initState();
+    _currentSongSubscription =
+        widget.playbackService.currentSongStream.listen((song) {
+      setState(() {
+        _currentSong = song;
+        _lyricsFuture = LyricsService().getLrcForSong(song);
+      });
+    });
+    widget.song = widget.playbackService.currentSong;
     _lyricsFuture = LyricsService().getLrcForSong(widget.song);
-    _backgroundColor = Colors.grey; // 默认底色
+    _backgroundColor = Colors.blue; // 默认底色
+    _currentPlayBackMode = widget.playbackService.playbackMode;
+    _playbackModeNotifier = ValueNotifier<PlaybackMode>(_currentPlayBackMode);
+  }
+
+  @override
+  void dispose() {
+    _currentSongSubscription.cancel();
+    super.dispose();
+  }
+
+  void _switchPlayBackMode() {
+    final nextMode = PlaybackMode.values[
+        (_playbackModeNotifier.value.index + 1) % PlaybackMode.values.length];
+    _playbackModeNotifier.value = nextMode;
+    widget.playbackService.setPlaybackMode(nextMode);
   }
 
   @override
   Widget build(BuildContext context) {
+    final currentSong = _currentSong ?? widget.song;
     return Scaffold(
-      backgroundColor: _backgroundColor.withOpacity(0.1),
+      backgroundColor: _backgroundColor,
       body: Stack(
         children: [
           Row(
@@ -53,7 +82,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildCover(),
+                      _buildCover(currentSong),
                       const SizedBox(height: 16),
                       _buildPlaybackControls(context, widget.playlistService,
                           widget.favoritesService),
@@ -69,12 +98,12 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSongInfo(),
+                      _buildSongInfo(currentSong),
                       const SizedBox(height: 16),
                       Expanded(
                         child: LyricsDisplay(
                           lyricsFuture: _lyricsFuture,
-                          onTapLyric: (time) => PlaybackService().seekTo(time),
+                          onTapLyric: (time) => DoNothingAction(),
                         ),
                       ),
                     ],
@@ -97,9 +126,9 @@ class _SongPlayPageState extends State<SongPlayPage> {
     );
   }
 
-  Widget _buildCover() {
+  Widget _buildCover(SongModel song) {
     return FutureBuilder<Image>(
-      future: ThumbnailGenerator().getOriginCover(widget.song.path),
+      future: ThumbnailGenerator().getOriginCover(song.path),
       builder: (context, snapshot) {
         return Container(
           width: 300,
@@ -121,23 +150,25 @@ class _SongPlayPageState extends State<SongPlayPage> {
     );
   }
 
-  Widget _buildSongInfo() {
+  Widget _buildSongInfo(SongModel song) {
+    debugPrint("rebuild song info");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          widget.song.title ?? '未知曲名',
+          song.title ?? '未知曲名',
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         Text(
-          widget.song.artist ?? '未知歌手',
+          song.artist ?? '未知歌手',
           style: const TextStyle(fontSize: 18),
         ),
         const SizedBox(height: 8),
         Text(
-          widget.song.album ?? '未知专辑',
-          style: const TextStyle(fontSize: 16, color: Colors.grey),
+          song.album ?? '未知专辑',
+          style: const TextStyle(
+              fontSize: 17, color: Color.fromARGB(255, 45, 58, 173)),
         ),
       ],
     );
@@ -145,31 +176,50 @@ class _SongPlayPageState extends State<SongPlayPage> {
 
   Widget _buildPlaybackControls(BuildContext context,
       PlaylistService playlistService, FavoritesService favoritesService) {
-    final playbackService = Provider.of<PlaybackService>(context);
-
     return StreamBuilder<PlaybackState>(
-      stream: playbackService.playbackStateStream,
+      stream: widget.playbackService.playbackStateStream,
       builder: (context, snapshot) {
         final state = snapshot.data;
         final isPlaying = state?.isPlaying ?? false;
-        final currentSong = state?.currentSong;
+        final currentSong = _currentSong ?? widget.song;
         if (currentSong == null) return const SizedBox();
-
+        final position = state?.position ?? Duration.zero;
+        final duration = state?.duration ?? Duration.zero;
         return Column(
           children: [
-            Slider(
-              value: (state?.position.inSeconds ?? 0).toDouble(),
-              max: (state?.duration.inSeconds ?? 1).toDouble(),
-              onChanged: (value) {
-                playbackService.seekTo(value.toInt());
-              },
+            Row(
+              children: [
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    '${position.inMinutes}:${(position.inSeconds % 60).toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+                Expanded(
+                  child: Slider(
+                    value: (state?.position.inSeconds ?? 0).toDouble(),
+                    max: (state?.duration.inSeconds ?? 1).toDouble(),
+                    onChanged: (value) {
+                      widget.playbackService.seekTo(value.toInt());
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 IconButton(
                   icon: const Icon(Icons.skip_previous, size: 24),
-                  onPressed: playbackService.previous,
+                  onPressed: widget.playbackService.previous,
                 ),
                 IconButton(
                   icon: Icon(
@@ -177,22 +227,47 @@ class _SongPlayPageState extends State<SongPlayPage> {
                     size: 32,
                   ),
                   onPressed: isPlaying
-                      ? playbackService.pause
-                      : playbackService.resume,
+                      ? widget.playbackService.pause
+                      : widget.playbackService.resume,
                 ),
                 IconButton(
                   icon: const Icon(Icons.skip_next, size: 24),
-                  onPressed: playbackService.next,
+                  onPressed: widget.playbackService.next,
+                ),
+                ValueListenableBuilder<PlaybackMode>(
+                  valueListenable: _playbackModeNotifier,
+                  builder: (context, mode, child) {
+                    IconData icon;
+                    switch (mode) {
+                      case PlaybackMode.random:
+                        icon = Icons.shuffle;
+                        break;
+                      case PlaybackMode.singleLoop:
+                        icon = Icons.repeat_one;
+                        break;
+                      case PlaybackMode.loopAll:
+                        icon = Icons.repeat;
+                        break;
+                      default:
+                        icon = Icons.playlist_play;
+                    }
+
+                    return IconButton(
+                      icon: Icon(icon),
+                      onPressed: _switchPlayBackMode,
+                    );
+                  },
                 ),
                 IconButton(
                   icon: Icon(
-                    widget.song.isFavorite
+                    currentSong.isFavorite
                         ? Icons.favorite
                         : Icons.favorite_border,
-                    color: widget.song.isFavorite ? Colors.red : null,
+                    color: currentSong.isFavorite ? Colors.red : null,
                     size: 24,
                   ),
-                  onPressed: () => _toggleFavorite(favoritesService),
+                  onPressed: () =>
+                      _toggleFavorite(favoritesService, currentSong),
                 ),
                 IconButton(
                   icon: const Icon(Icons.playlist_add, size: 24),
@@ -207,13 +282,15 @@ class _SongPlayPageState extends State<SongPlayPage> {
     );
   }
 
-  void _toggleFavorite(FavoritesService favoritesService) {
-    favoritesService.toggleFavorite(widget.song.id!);
+  void _toggleFavorite(FavoritesService favoritesService, SongModel song) {
+    song.isFavorite = !song.isFavorite; // 更新本地状态
+    favoritesService.toggleFavorite(song.id!);
   }
 
   void _showAddToPlaylistDialog(
       BuildContext context, PlaylistService playlistService) async {
     final playlists = await playlistService.getPlaylists();
+    final currentSong = _currentSong ?? widget.song;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -228,7 +305,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   final newPlaylist =
                       await playlistService.createPlaylist(name);
                   await playlistService.addSongToPlaylist(
-                      newPlaylist.id!, widget.song.id!);
+                      newPlaylist.id!, currentSong.id!);
                 }
               },
               child: const Text('新建收藏'),
@@ -247,7 +324,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 title: Text(playlist.name),
                 onTap: () {
                   playlistService.addSongToPlaylist(
-                      playlist.id!, widget.song.id!);
+                      playlist.id!, currentSong.id!);
                   Navigator.pop(context);
                 },
               );

@@ -169,6 +169,7 @@ class SongListItem extends StatelessWidget {
                       await playlistService.createPlaylist(name);
                   await playlistService.addSongToPlaylist(
                       newPlaylist.id!, song.id!);
+                  Navigator.pop(context);
                 }
               },
               child: const Text('新建收藏'),

@@ -46,7 +46,10 @@ class _MainPageState extends State<MainPage> {
         favoritesService: _favoritesService!,
         playbackService: _playbackService!,
       ),
-      PlaybackListPage(favoritesService: _favoritesService!),
+      PlaybackListPage(
+        favoritesService: _favoritesService!,
+        playbackService: _playbackService!,
+      ),
     ];
   }
 
