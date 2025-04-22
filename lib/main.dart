@@ -49,7 +49,7 @@ class MyApp extends StatelessWidget {
             // 直接根据 themeService.themeColor 构建主题
             theme: ThemeData(
               primarySwatch: createMaterialColor(themeService.themeColor),
-              fontFamily: 'Microsoft YaHei',
+              fontFamily: 'HarmonyOS_Sans_SC',
               visualDensity: VisualDensity.adaptivePlatformDensity,
               brightness: Brightness.light,
               elevatedButtonTheme: ElevatedButtonThemeData(
