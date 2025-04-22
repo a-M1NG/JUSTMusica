@@ -29,6 +29,7 @@ class SongListItem extends StatelessWidget {
       onSecondaryTapDown: (details) =>
           _showContextMenu(context, details.globalPosition),
       child: InkWell(
+        mouseCursor: SystemMouseCursors.basic,
         hoverColor: Colors.grey.withOpacity(0.1),
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,

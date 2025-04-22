@@ -27,7 +27,7 @@ class NavigationBarWidget extends StatefulWidget {
 }
 
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
-  bool _playlistsExpanded = false;
+  bool _playlistsExpanded = true;
   bool _isHovering = false;
   @override
   Widget build(BuildContext context) {
@@ -76,6 +76,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       child: ExpansionTile(
         leading: const Icon(Icons.folder_special, size: 24),
         title: const Text('收藏夹'),
+        initiallyExpanded: _playlistsExpanded,
         onExpansionChanged: (expanded) {
           setState(() {
             _playlistsExpanded = expanded;

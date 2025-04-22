@@ -47,6 +47,7 @@ class MyApp extends StatelessWidget {
           return MaterialApp(
             title: 'JUST Music',
             // 直接根据 themeService.themeColor 构建主题
+            debugShowCheckedModeBanner: false,
             theme: ThemeData(
               primarySwatch: createMaterialColor(themeService.themeColor),
               fontFamily: 'HarmonyOS_Sans_SC',

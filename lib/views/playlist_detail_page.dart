@@ -277,8 +277,7 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
       await widget.playlistService
           .removeSongFromPlaylist(widget.playlist.id!, song.id!);
       setState(() {
-        _songsFuture =
-            widget.playlistService.getPlaylistSongs(widget.playlist.id!);
+        _songsFuture = _loadSongs();
       });
     }
   }
