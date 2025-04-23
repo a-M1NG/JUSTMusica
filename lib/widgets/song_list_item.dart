@@ -42,13 +42,14 @@ class SongListItem extends StatelessWidget {
               FutureBuilder<ImageProvider>(
                 future: ThumbnailGenerator().getThumbnailProvider(song.path),
                 builder: (context, snapshot) {
+                  double h = 45.0;
                   if (snapshot.hasData) {
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image(
                         image: snapshot.data!,
-                        width: 40,
-                        height: 40,
+                        width: h,
+                        height: h,
                         fit: BoxFit.cover,
                       ),
                     );
@@ -57,8 +58,8 @@ class SongListItem extends StatelessWidget {
                   return ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
-                      width: 40,
-                      height: 40,
+                      width: h,
+                      height: h,
                       color: Colors.grey.shade200, // 背景色，让 icon 更突出
                       child: const Icon(
                         Icons.music_note,
@@ -185,6 +186,9 @@ class SongListItem extends StatelessWidget {
                       await playlistService.createPlaylist(name);
                   await playlistService.addSongToPlaylist(
                       newPlaylist.id!, song.id!);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('已添加 ${song.title} 到新收藏夹: $name')),
+                  );
                   Navigator.pop(context);
                 }
               },
@@ -203,6 +207,11 @@ class SongListItem extends StatelessWidget {
                 title: Text(playlist.name),
                 onTap: () {
                   playlistService.addSongToPlaylist(playlist.id!, song.id!);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content:
+                            Text('已添加 ${song.title} 到收藏夹: ${playlist.name}')),
+                  );
                   Navigator.pop(context);
                 },
               );

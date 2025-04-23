@@ -381,8 +381,9 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                   await widget.playlistService
                       .addSongToPlaylist(newPlaylist.id!, song.id!);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加到新收藏夹: $name')),
+                    SnackBar(content: Text('已添加 ${song.title} 到新收藏夹: $name')),
                   );
+                  Navigator.pop(context);
                 }
               },
               child: const Text('新建收藏'),
@@ -404,7 +405,9 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                       .addSongToPlaylist(playlist.id!, song.id!);
                   Navigator.pop(context);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加到收藏夹: ${playlist.name}')),
+                    SnackBar(
+                        content:
+                            Text('已添加 ${song.title} 到收藏夹: ${playlist.name}')),
                   );
                 },
               );
