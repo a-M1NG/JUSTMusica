@@ -14,7 +14,7 @@ void main() async {
   // 仅在桌面平台生效
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     // 设置窗口标题（可选）
-    // setWindowTitle('My Flutter Desktop App');
+    setWindowTitle('JUST Musica');
 
     // 设置最小尺寸
     setWindowMinSize(const Size(1160, 600));
