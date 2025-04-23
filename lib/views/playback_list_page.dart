@@ -1,111 +1,74 @@
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../services/playback_service.dart';
-import '../widgets/song_list_item.dart';
 import '../services/favorites_service.dart';
+import '../widgets/song_list_item.dart';
+import 'base_music_page.dart';
 
-class PlaybackListPage extends StatefulWidget {
+class PlaybackListPage extends SongListPageBase {
   const PlaybackListPage({
     super.key,
-    required this.favoritesService,
-    required this.playbackService,
+    required super.favoritesService,
+    required super.playbackService,
   });
-  final FavoritesService favoritesService;
-  final PlaybackService playbackService;
+
   @override
   State<PlaybackListPage> createState() => _PlaybackListPageState();
 }
 
-class _PlaybackListPageState extends State<PlaybackListPage> {
-  late Future<List<SongModel>> _playbackListFuture;
+class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
+  @override
+  Future<List<SongModel>> loadSongsImplementation() {
+    return widget.playbackService.getPlaybackList();
+  }
 
   @override
-  void initState() {
-    super.initState();
-    _playbackListFuture = widget.playbackService.getPlaybackList();
+  Future<void> deleteSong(SongModel song) async {
+    final confirm = await showDeleteDialog(
+      context,
+      '移除歌曲',
+      '是否从播放列表中移除此歌曲？',
+    );
+    if (confirm == true) {
+      final currentList = await songsFuture;
+      await widget.playbackService.setPlaybackList(
+        currentList.where((s) => s.id != song.id).toList(),
+      );
+      await loadSongs();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Theme.of(context).primaryColor.withOpacity(0.1),
-      child: ListenableBuilder(
-        listenable: widget.playbackService,
-        builder: (context, _) {
-          final songs = widget.playbackService.currentPlaylist;
-          if (songs.isEmpty) {
-            return const Center(child: Text('播放列表为空'));
-          }
-          return ListView(
-            children: songs.asMap().entries.map((entry) {
-              final index = entry.key;
-              final song = entry.value;
-              return KeyedSubtree(
-                key: ValueKey(song.id),
-                child: SongListItem(
-                  song: song,
-                  index: index + 1,
-                  onPlay: () => _playSong(song),
-                  onToggleFavorite: () => _toggleFavorite(song),
-                  onDelete: () => _removeFromPlaybackList(song),
-                  onAddToNext: () => _addToNext(song),
-                ),
-              );
-            }).toList(),
-          );
-        },
-      ),
+    return ListenableBuilder(
+      listenable: widget.playbackService,
+      builder: (context, _) => super.build(context),
     );
   }
 
-  void _playSong(SongModel song) {
-    // 调用后端接口播放歌曲
-    widget.playbackService.playSong(song);
-  }
+  @override
+  String getPageTitle() => '';
 
-  void _addToNext(SongModel song) {
-    // 调用后端接口将歌曲加入下一首播放
-    widget.playbackService.playNext(song.id!);
-  }
+  @override
+  List<Widget> getAppBarActions() => [];
 
-  void _toggleFavorite(SongModel song) {
-    // 调用后端接口切换喜欢状态
-    widget.favoritesService.toggleFavorite(song.id!);
-    setState(() {
-      _playbackListFuture = widget.playbackService.getPlaybackList();
-    });
-  }
+  @override
+  String getEmptyMessage() => '播放列表为空';
 
-  void _removeFromPlaybackList(SongModel song) async {
-    final confirm = await _showRemoveDialog(context);
+  @override
+  Future<bool?> onDeleteSelected() async {
+    final confirm = await showDeleteDialog(
+      context,
+      '移除歌曲',
+      '是否从播放列表中移除这些歌曲？',
+    );
     if (confirm == true) {
-      // 调用后端接口移除歌曲
+      final currentList = await songsFuture;
       await widget.playbackService.setPlaybackList(
-        (await _playbackListFuture).where((s) => s.id != song.id).toList(),
+        currentList.where((s) => !selectedSongIds.contains(s.id)).toList(),
       );
-      setState(() {
-        _playbackListFuture = widget.playbackService.getPlaybackList();
-      });
+      await loadSongs();
     }
-  }
-
-  Future<bool?> _showRemoveDialog(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('移除歌曲'),
-        content: const Text('是否从播放列表中移除此歌曲？'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('移除'),
-          ),
-        ],
-      ),
-    );
+    return confirm;
   }
 }

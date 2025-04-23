@@ -10,7 +10,10 @@ class SongListItem extends StatelessWidget {
   final VoidCallback onPlay;
   final VoidCallback onToggleFavorite;
   final VoidCallback onDelete;
-  final VoidCallback onAddToNext; // 新增参数
+  final VoidCallback onAddToNext;
+  final bool? isMultiSelectMode; // 新增：是否为多选模式
+  final bool? isSelected; // 新增：当前项是否选中
+  final VoidCallback? onSelect; // 新增：切换选择状态
 
   const SongListItem({
     super.key,
@@ -19,13 +22,17 @@ class SongListItem extends StatelessWidget {
     required this.onPlay,
     required this.onToggleFavorite,
     required this.onDelete,
-    required this.onAddToNext, // 新增参数
+    required this.onAddToNext,
+    this.isMultiSelectMode,
+    this.isSelected,
+    this.onSelect,
   });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onDoubleTap: onPlay,
+      onTap: isMultiSelectMode ?? false ? onSelect : doNothing, // 多选模式下点击切换选中状态
+      onDoubleTap: isMultiSelectMode ?? false ? null : onPlay, // 非多选模式下双击播放
       onSecondaryTapDown: (details) =>
           _showContextMenu(context, details.globalPosition),
       child: InkWell(
@@ -33,43 +40,48 @@ class SongListItem extends StatelessWidget {
         hoverColor: Colors.grey.withOpacity(0.1),
         splashColor: Colors.transparent,
         highlightColor: Colors.transparent,
-        onTap: doNothing,
+        onTap: isMultiSelectMode ?? false ? onSelect : doNothing,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
             children: [
               // 封面
-              FutureBuilder<ImageProvider>(
-                future: ThumbnailGenerator().getThumbnailProvider(song.path),
-                builder: (context, snapshot) {
-                  double h = 45.0;
-                  if (snapshot.hasData) {
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image(
-                        image: snapshot.data!,
-                        width: h,
-                        height: h,
-                        fit: BoxFit.cover,
-                      ),
-                    );
-                  }
-                  // 占位 icon 用同样圆角的容器包一下
-                  return ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      width: h,
-                      height: h,
-                      color: Colors.grey.shade200, // 背景色，让 icon 更突出
-                      child: const Icon(
-                        Icons.music_note,
-                        size: 24,
-                        color: Colors.grey,
-                      ),
+              isMultiSelectMode ?? false
+                  ? Checkbox(
+                      value: isSelected,
+                      onChanged: (value) => onSelect?.call(),
+                    )
+                  : FutureBuilder<ImageProvider>(
+                      future:
+                          ThumbnailGenerator().getThumbnailProvider(song.path),
+                      builder: (context, snapshot) {
+                        double h = 45.0;
+                        if (snapshot.hasData) {
+                          return ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image(
+                              image: snapshot.data!,
+                              width: h,
+                              height: h,
+                              fit: BoxFit.cover,
+                            ),
+                          );
+                        }
+                        return ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Container(
+                            width: h,
+                            height: h,
+                            color: Colors.grey.shade200,
+                            child: const Icon(
+                              Icons.music_note,
+                              size: 24,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                  );
-                },
-              ),
               const SizedBox(width: 16),
 
               // 歌曲信息
