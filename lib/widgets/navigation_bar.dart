@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../services/playlist_service.dart';
 import '../models/playlist_model.dart';
 import '../views/playlist_detail_page.dart';
@@ -38,6 +39,11 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       color: Theme.of(context).primaryColor.withOpacity(0.5),
       child: Column(
         children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24.0),
+            child: SvgPicture.asset('assets/images/text_logo.svg',
+                width: 80, height: 30, color: Colors.white),
+          ),
           _buildNavItem(0, '所有歌曲', Icons.library_music),
           _buildNavItem(1, '我喜欢', Icons.favorite),
           _buildPlaylistsSection(),

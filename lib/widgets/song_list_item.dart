@@ -43,15 +43,30 @@ class SongListItem extends StatelessWidget {
                 future: ThumbnailGenerator().getThumbnailProvider(song.path),
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
-                    return Image(
-                      image: snapshot.data!,
-                      width: 40,
-                      height: 40,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.music_note, size: 40),
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image(
+                        image: snapshot.data!,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
                     );
                   }
-                  return const Icon(Icons.music_note, size: 40);
+                  // 占位 icon 用同样圆角的容器包一下
+                  return ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      width: 40,
+                      height: 40,
+                      color: Colors.grey.shade200, // 背景色，让 icon 更突出
+                      child: const Icon(
+                        Icons.music_note,
+                        size: 24,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  );
                 },
               ),
               const SizedBox(width: 16),
