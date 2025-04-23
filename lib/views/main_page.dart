@@ -119,13 +119,28 @@ class _MainPageState extends State<MainPage> {
               playbackService: _playbackService!,
             ),
             Expanded(
-              child: Column(
+              child: Stack(
                 children: [
-                  Expanded(child: _pages[_selectedIndex]),
-                  PlaybackControlBar(
-                    playlistService: _playlistService!,
-                    favoritesService: _favoritesService!,
-                    playbackService: _playbackService!,
+                  Column(
+                    children: [
+                      Expanded(child: _pages[_selectedIndex]),
+                      SizedBox(height: 81),
+                    ],
+                  ),
+                  Positioned(
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    child: Material(
+                      elevation: 8, // 阴影，让它在视觉上更“浮”在上面
+                      color:
+                          Theme.of(context).canvasColor, // 不透明背景，避免背后透出 hover 色
+                      child: PlaybackControlBar(
+                        playlistService: _playlistService!,
+                        favoritesService: _favoritesService!,
+                        playbackService: _playbackService!,
+                      ),
+                    ),
                   ),
                 ],
               ),
