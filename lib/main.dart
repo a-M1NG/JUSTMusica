@@ -13,22 +13,26 @@ void main() async {
 
 // 辅助函数：根据 Color 创建 MaterialColor
 MaterialColor createMaterialColor(Color color) {
-  List strengths = <double>[.05];
-  final swatch = <int, Color>{};
-  final int r = color.red, g = color.green, b = color.blue;
-  for (int i = 1; i < 10; i++) {
-    strengths.add(0.1 * i);
-  }
-  for (var strength in strengths) {
-    final ds = 0.5 - strength;
-    swatch[(strength * 1000).round()] = Color.fromRGBO(
-      r + ((ds < 0 ? r : (255 - r)) * ds).round(),
-      g + ((ds < 0 ? g : (255 - g)) * ds).round(),
-      b + ((ds < 0 ? b : (255 - b)) * ds).round(),
-      1,
-    );
+  List<double> strengths = [.05, .1, .2, .3, .4, .5, .6, .7, .8, .9];
+  Map<int, Color> swatch = {};
+  for (double strength in strengths) {
+    int value = (strength * 1000).round();
+    swatch[value] = _tintColor(color, strength);
   }
   return MaterialColor(color.value, swatch);
+}
+
+Color _tintColor(Color color, double factor) {
+  int tintValue(int channel) {
+    return (channel + (255 - channel) * factor).round().clamp(0, 255);
+  }
+
+  return Color.fromRGBO(
+    tintValue(color.red),
+    tintValue(color.green),
+    tintValue(color.blue),
+    1,
+  );
 }
 
 class MyApp extends StatelessWidget {
@@ -44,15 +48,24 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer<ThemeService>(
         builder: (context, themeService, _) {
+          debugPrint(
+              "main: Current theme color: ${Theme.of(context).primaryColor}");
           return MaterialApp(
             title: 'JUST Music',
             // 直接根据 themeService.themeColor 构建主题
             debugShowCheckedModeBanner: false,
             theme: ThemeData(
               primarySwatch: createMaterialColor(themeService.themeColor),
+              colorScheme: ColorScheme.fromSwatch(
+                primarySwatch: createMaterialColor(themeService.themeColor),
+                // brightness: themeService.brightness,
+              ).copyWith(
+                surface: Colors.grey[100],
+                onPrimary: Colors.white,
+              ),
               fontFamily: 'HarmonyOS_Sans_SC',
               visualDensity: VisualDensity.adaptivePlatformDensity,
-              brightness: Brightness.light,
+              // brightness: themeService.brightness,
               elevatedButtonTheme: ElevatedButtonThemeData(
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(

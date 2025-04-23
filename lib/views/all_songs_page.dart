@@ -67,75 +67,78 @@ class _AllSongsPageState extends State<AllSongsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              ElevatedButton.icon(
-                icon: Icon(Icons.folder, size: 20),
-                label: const Text('导入文件夹'),
-                onPressed: _importFolder,
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton.icon(
-                icon: Icon(Icons.music_note, size: 20),
-                label: const Text('导入歌曲'),
-                onPressed: _importSongs,
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: FutureBuilder<List<SongModel>>(
-            future: _songsFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('正在加载...'),
-                    ],
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.2),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton.icon(
+                  icon: Icon(Icons.folder, size: 20),
+                  label: const Text('导入文件夹'),
+                  onPressed: _importFolder,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
-                );
-              }
-              if (snapshot.hasError) {
-                return Center(child: Text('加载失败: ${snapshot.error}'));
-              }
-              final songs = snapshot.data ?? [];
-              if (songs.isEmpty) {
-                return const Center(child: Text('暂无歌曲，请导入音乐'));
-              }
-              return ListView.builder(
-                itemCount: songs.length,
-                itemBuilder: (context, index) {
-                  return SongListItem(
-                    song: songs[index],
-                    index: index + 1,
-                    onPlay: () => _playSong(songs[index]),
-                    onToggleFavorite: () => _toggleFavorite(songs[index]),
-                    onDelete: () => _deleteSong(songs[index]),
-                    onAddToNext: () => _addToNext(songs[index]),
-                  );
-                },
-              );
-            },
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  icon: Icon(Icons.music_note, size: 20),
+                  label: const Text('导入歌曲'),
+                  onPressed: _importSongs,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+          Expanded(
+            child: FutureBuilder<List<SongModel>>(
+              future: _songsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('正在加载...'),
+                      ],
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text('加载失败: ${snapshot.error}'));
+                }
+                final songs = snapshot.data ?? [];
+                if (songs.isEmpty) {
+                  return const Center(child: Text('暂无歌曲，请导入音乐'));
+                }
+                return ListView.builder(
+                  itemCount: songs.length,
+                  itemBuilder: (context, index) {
+                    return SongListItem(
+                      song: songs[index],
+                      index: index + 1,
+                      onPlay: () => _playSong(songs[index]),
+                      onToggleFavorite: () => _toggleFavorite(songs[index]),
+                      onDelete: () => _deleteSong(songs[index]),
+                      onAddToNext: () => _addToNext(songs[index]),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 

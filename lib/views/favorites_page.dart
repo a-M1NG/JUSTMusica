@@ -41,42 +41,45 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<List<SongModel>>(
-      future: _favoritesFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('正在加载...'),
-              ],
-            ),
-          );
-        }
-        if (snapshot.hasError) {
-          return Center(child: Text('加载失败: ${snapshot.error}'));
-        }
-        final favorites = snapshot.data ?? [];
-        if (favorites.isEmpty) {
-          return const Center(child: Text('暂无喜欢的歌曲'));
-        }
-        return ListView.builder(
-          itemCount: favorites.length,
-          itemBuilder: (context, index) {
-            return SongListItem(
-              song: favorites[index],
-              index: index + 1,
-              onPlay: () => _playSong(favorites[index]),
-              onToggleFavorite: () => _toggleFavorite(favorites[index]),
-              onDelete: () => _removeFavorite(favorites[index]),
-              onAddToNext: () => _addToNext(favorites[index]),
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      child: FutureBuilder<List<SongModel>>(
+        future: _favoritesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text('正在加载...'),
+                ],
+              ),
             );
-          },
-        );
-      },
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('加载失败: ${snapshot.error}'));
+          }
+          final favorites = snapshot.data ?? [];
+          if (favorites.isEmpty) {
+            return const Center(child: Text('暂无喜欢的歌曲'));
+          }
+          return ListView.builder(
+            itemCount: favorites.length,
+            itemBuilder: (context, index) {
+              return SongListItem(
+                song: favorites[index],
+                index: index + 1,
+                onPlay: () => _playSong(favorites[index]),
+                onToggleFavorite: () => _toggleFavorite(favorites[index]),
+                onDelete: () => _removeFavorite(favorites[index]),
+                onAddToNext: () => _addToNext(favorites[index]),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 

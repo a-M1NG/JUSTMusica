@@ -32,7 +32,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
   late Future<String> _lyricsFuture;
   late ValueNotifier<PlaybackMode> _playbackModeNotifier;
 
-  Color _backgroundColor = Colors.blue;
+  // Color _backgroundColor = Colors.blue;
   SongModel? _currentSong;
   PlaybackMode _currentPlayBackMode = PlaybackMode.sequential;
   @override
@@ -47,7 +47,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
     });
     widget.song = widget.playbackService.currentSong;
     _lyricsFuture = LyricsService().getLrcForSong(widget.song);
-    _backgroundColor = Colors.blue; // 默认底色
+    // _backgroundColor = Colors.blue; // 默认底色
     _currentPlayBackMode = widget.playbackService.playbackMode;
     _playbackModeNotifier = ValueNotifier<PlaybackMode>(_currentPlayBackMode);
   }
@@ -69,7 +69,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
   Widget build(BuildContext context) {
     final currentSong = _currentSong ?? widget.song;
     return Scaffold(
-      backgroundColor: _backgroundColor,
+      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.6),
       body: Stack(
         children: [
           Row(

@@ -31,9 +31,10 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   bool _isHovering = false;
   @override
   Widget build(BuildContext context) {
+    debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
     return Container(
       width: 250,
-      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      color: Theme.of(context).primaryColor.withOpacity(0.5),
       child: Column(
         children: [
           _buildNavItem(0, '所有歌曲', Icons.library_music),

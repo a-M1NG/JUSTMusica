@@ -5,9 +5,10 @@ class ThemeService extends ChangeNotifier {
   static const String _themeColorKey = 'theme_color';
 
   // 缓存当前主题色，默认为蓝色
-  Color _themeColor = Colors.black;
+  Color _themeColor = Colors.blue;
   Color get themeColor => _themeColor;
-
+  Brightness get brightness =>
+      _themeColor.computeLuminance() > 0.5 ? Brightness.light : Brightness.dark;
   ThemeService() {
     _loadThemeColor();
   }

@@ -27,31 +27,34 @@ class _PlaybackListPageState extends State<PlaybackListPage> {
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.playbackService,
-      builder: (context, _) {
-        final songs = widget.playbackService.currentPlaylist;
-        if (songs.isEmpty) {
-          return const Center(child: Text('播放列表为空'));
-        }
-        return ListView(
-          children: songs.asMap().entries.map((entry) {
-            final index = entry.key;
-            final song = entry.value;
-            return KeyedSubtree(
-              key: ValueKey(song.id),
-              child: SongListItem(
-                song: song,
-                index: index + 1,
-                onPlay: () => _playSong(song),
-                onToggleFavorite: () => _toggleFavorite(song),
-                onDelete: () => _removeFromPlaybackList(song),
-                onAddToNext: () => _addToNext(song),
-              ),
-            );
-          }).toList(),
-        );
-      },
+    return Container(
+      color: Theme.of(context).primaryColor.withOpacity(0.1),
+      child: ListenableBuilder(
+        listenable: widget.playbackService,
+        builder: (context, _) {
+          final songs = widget.playbackService.currentPlaylist;
+          if (songs.isEmpty) {
+            return const Center(child: Text('播放列表为空'));
+          }
+          return ListView(
+            children: songs.asMap().entries.map((entry) {
+              final index = entry.key;
+              final song = entry.value;
+              return KeyedSubtree(
+                key: ValueKey(song.id),
+                child: SongListItem(
+                  song: song,
+                  index: index + 1,
+                  onPlay: () => _playSong(song),
+                  onToggleFavorite: () => _toggleFavorite(song),
+                  onDelete: () => _removeFromPlaybackList(song),
+                  onAddToNext: () => _addToNext(song),
+                ),
+              );
+            }).toList(),
+          );
+        },
+      ),
     );
   }
 
