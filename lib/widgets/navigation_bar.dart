@@ -6,6 +6,7 @@ import '../views/playlist_detail_page.dart';
 import '../services/favorites_service.dart';
 import '../views/setting_page.dart';
 import '../services/playback_service.dart';
+import '../utils/tools.dart';
 
 class NavigationBarWidget extends StatefulWidget {
   final int selectedIndex;
@@ -186,6 +187,10 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     // 播放收藏夹
     var playlistSongs =
         await widget.playlistService.getPlaylistSongs(playlist.id!);
+    if (playlistSongs.isEmpty) {
+      CreateMessage('收藏夹为空，无法播放', context);
+      return;
+    }
     widget.playbackService.setPlaybackList(playlistSongs);
     widget.playbackService.playSong(playlistSongs.first);
   }
