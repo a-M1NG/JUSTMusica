@@ -224,6 +224,35 @@ class DatabaseService {
     }
   }
 
+  Future<void> deleteSongs(List<int> songIds, {bool deleteFile = false}) async {
+    final db = await database;
+    try {
+      await db.transaction((txn) async {
+        for (var songId in songIds) {
+          if (deleteFile) {
+            final song = await getSongById(songId);
+            if (song != null && await File(song.path).exists()) {
+              await File(song.path).delete();
+            }
+          }
+          await txn.delete(
+            'Songs',
+            where: 'id = ?',
+            whereArgs: [songId],
+          );
+          await txn.delete(
+            'PlaylistSongs',
+            where: 'song_id = ?',
+            whereArgs: [songId],
+          );
+        }
+      });
+    } catch (e) {
+      _logger.e('Failed to delete songs: $e');
+      rethrow;
+    }
+  }
+
   // --- Playlists 表操作 ---
 
   // 插入播放列表

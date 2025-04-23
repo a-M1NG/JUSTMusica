@@ -59,7 +59,7 @@ class PlaylistService {
   }
 
   /// 将歌曲添加到收藏夹
-  Future<void> addSongToPlaylist(int playlistId, int songId) async {
+  Future<bool?> addSongToPlaylist(int playlistId, int songId) async {
     try {
       // 检查收藏夹是否存在
       final playlistExists = await _database.query(
@@ -79,6 +79,17 @@ class PlaylistService {
       );
       if (songExists.isEmpty) {
         throw Exception('Song with ID $songId does not exist');
+      }
+
+      // 检查歌曲是否已在收藏夹中
+      final songInPlaylist = await _database.query(
+        'PlaylistSongs',
+        where: 'playlist_id = ? AND song_id = ?',
+        whereArgs: [playlistId, songId],
+      );
+      if (songInPlaylist.isNotEmpty) {
+        _logger.w('Song $songId is already in playlist $playlistId');
+        return false; // 歌曲已在收藏夹中
       }
 
       // 添加关联
@@ -115,8 +126,26 @@ class PlaylistService {
       }
 
       _logger.i('Added song $songId to playlist $playlistId');
+      return true;
     } catch (e) {
       _logger.e('Failed to add song $songId to playlist $playlistId: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool?> addSongsToPlaylist(int playlistID, List<int> songIds) async {
+    try {
+      bool allAdded = true;
+      for (var songId in songIds) {
+        var res = await addSongToPlaylist(playlistID, songId);
+        if (res == false) {
+          allAdded = false;
+        }
+      }
+      _logger.i('Added ${songIds.length} songs to playlist $playlistID');
+      return allAdded;
+    } catch (e) {
+      _logger.e('Failed to add songs to playlist $playlistID: $e');
       rethrow;
     }
   }
@@ -187,6 +216,24 @@ class PlaylistService {
       }
     } catch (e) {
       _logger.e('Failed to remove song $songId from playlist $playlistId: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeSongsFromPlaylist(
+      int playlistId, List<int> songIds) async {
+    try {
+      await _database.transaction((txn) async {
+        for (var songId in songIds) {
+          await txn.delete(
+            'PlaylistSongs',
+            where: 'playlist_id = ? AND song_id = ?',
+            whereArgs: [playlistId, songId],
+          );
+        }
+      });
+    } catch (e) {
+      _logger.e('Failed to remove songs from playlist: $e');
       rethrow;
     }
   }

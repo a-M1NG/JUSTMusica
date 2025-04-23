@@ -56,4 +56,36 @@ class FavoritesService {
       rethrow;
     }
   }
+
+  Future<void> toggleFavorites(List<int> songIds) async {
+    try {
+      // 直接操作数据库
+      final batch = _database.batch();
+      for (var songId in songIds) {
+        // 检查歌曲是否存在
+        final songResult = await _database.query(
+          'songs',
+          where: 'id = ?',
+          whereArgs: [songId],
+        );
+
+        if (songResult.isEmpty) {
+          throw Exception('Song with ID $songId does not exist');
+        }
+
+        final currentSong = SongModel.fromMap(songResult.first);
+        final newFavoriteStatus = currentSong.isFavorite ? 0 : 1;
+
+        batch.update(
+          'songs',
+          {'is_favorite': newFavoriteStatus},
+          where: 'id = ?',
+          whereArgs: [songId],
+        );
+      }
+    } catch (e) {
+      _logger.e('Failed to toggle favorites: $e');
+      rethrow;
+    }
+  }
 }
