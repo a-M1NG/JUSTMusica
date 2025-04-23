@@ -6,6 +6,7 @@ import '../widgets/song_list_item.dart';
 import '../services/playback_service.dart';
 import '../services/favorites_service.dart';
 import '../utils/thumbnail_generator.dart';
+import '../widgets/playback_control_bar.dart';
 
 class PlaylistDetailPage extends StatefulWidget {
   final PlaylistModel playlist;
@@ -55,8 +56,10 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('curr playlist color : ${Theme.of(context).primaryColor}');
     return Scaffold(
       appBar: AppBar(
+        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
         title: Text(widget.playlist.name),
         actions: [
           IconButton(
@@ -65,51 +68,60 @@ class _PlaylistDetailPageState extends State<PlaylistDetailPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // 封面和歌单信息区域
-          _buildPlaylistHeader(),
-          // 歌曲列表
-          Expanded(
-            child: FutureBuilder<List<SongModel>>(
-              future: _songsFuture,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        CircularProgressIndicator(),
-                        SizedBox(height: 16),
-                        Text('正在加载...'),
-                      ],
-                    ),
-                  );
-                }
-                if (snapshot.hasError) {
-                  return Center(child: Text('加载失败: ${snapshot.error}'));
-                }
-                final songs = snapshot.data ?? [];
-                if (songs.isEmpty) {
-                  return const Center(child: Text('此收藏夹为空'));
-                }
-                return ListView.builder(
-                  itemCount: songs.length,
-                  itemBuilder: (context, index) {
-                    return SongListItem(
-                      song: songs[index],
-                      index: index + 1,
-                      onPlay: () => _playSong(songs[index]),
-                      onToggleFavorite: () => _toggleFavorite(songs[index]),
-                      onDelete: () => _removeFromPlaylist(songs[index]),
-                      onAddToNext: () => _addToNext(songs[index]),
+      body: Container(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        child: Column(
+          children: [
+            // 封面和歌单信息区域
+            _buildPlaylistHeader(),
+            // 歌曲列表
+            Expanded(
+              child: FutureBuilder<List<SongModel>>(
+                future: _songsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(),
+                          SizedBox(height: 16),
+                          Text('正在加载...'),
+                        ],
+                      ),
                     );
-                  },
-                );
-              },
+                  }
+                  if (snapshot.hasError) {
+                    return Center(child: Text('加载失败: ${snapshot.error}'));
+                  }
+                  final songs = snapshot.data ?? [];
+                  if (songs.isEmpty) {
+                    return const Center(child: Text('此收藏夹为空'));
+                  }
+                  return ListView.builder(
+                    itemCount: songs.length,
+                    itemBuilder: (context, index) {
+                      return SongListItem(
+                        song: songs[index],
+                        index: index + 1,
+                        onPlay: () => _playSong(songs[index]),
+                        onToggleFavorite: () => _toggleFavorite(songs[index]),
+                        onDelete: () => _removeFromPlaylist(songs[index]),
+                        onAddToNext: () => _addToNext(songs[index]),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+            // 播放控制条
+            PlaybackControlBar(
+              playbackService: widget.playbackService,
+              playlistService: widget.playlistService,
+              favoritesService: widget.favoritesService,
+            ),
+          ],
+        ),
       ),
     );
   }
