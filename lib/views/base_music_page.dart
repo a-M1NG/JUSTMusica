@@ -327,7 +327,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                 [SizedBox(width: 8)],
       ),
       body: Container(
-        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        color: Theme.of(context).primaryColor.withOpacity(0.2),
         child: Column(
           children: [
             if (hasHeader) getHeader()!,
@@ -355,7 +355,11 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                     return Center(child: Text(getEmptyMessage()));
                   }
                   return ListView.builder(
+                    shrinkWrap: true,
                     itemCount: songs.length,
+                    cacheExtent: 1400,
+                    itemExtent: 61,
+                    addAutomaticKeepAlives: false,
                     itemBuilder: (context, index) {
                       return SongListItem(
                         song: songs[index],
@@ -373,7 +377,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                 },
               ),
             ),
-            if (getFooter() != null) getFooter()!,
+            if (hasHeader) getFooter()!,
           ],
         ),
       ),

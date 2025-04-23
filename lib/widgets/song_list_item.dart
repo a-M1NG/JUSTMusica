@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+import 'dart:async';
 import '../models/song_model.dart';
 import '../utils/thumbnail_generator.dart';
 import '../services/playlist_service.dart';
 import '../services/database_service.dart';
+import 'package:shimmer/shimmer.dart';
 
-class SongListItem extends StatelessWidget {
+class SongListItem extends StatefulWidget {
   final SongModel song;
   final int index;
   final VoidCallback onPlay;
   final VoidCallback onToggleFavorite;
   final VoidCallback onDelete;
   final VoidCallback onAddToNext;
-  final bool? isMultiSelectMode; // 新增：是否为多选模式
-  final bool? isSelected; // 新增：当前项是否选中
-  final VoidCallback? onSelect; // 新增：切换选择状态
+  final bool? isMultiSelectMode;
+  final bool? isSelected;
+  final VoidCallback? onSelect;
 
   const SongListItem({
     super.key,
@@ -29,103 +32,202 @@ class SongListItem extends StatelessWidget {
   });
 
   @override
+  _SongListItemState createState() => _SongListItemState();
+}
+
+class _SongListItemState extends State<SongListItem> {
+  bool _shouldLoadRealContent = false;
+  bool _isVisible = false;
+  Timer? _timer;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: isMultiSelectMode ?? false ? onSelect : doNothing, // 多选模式下点击切换选中状态
-      onDoubleTap: isMultiSelectMode ?? false ? null : onPlay, // 非多选模式下双击播放
-      onSecondaryTapDown: (details) =>
-          _showContextMenu(context, details.globalPosition),
-      child: InkWell(
-        mouseCursor: SystemMouseCursors.basic,
-        hoverColor: Colors.grey.withOpacity(0.1),
-        splashColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        onTap: isMultiSelectMode ?? false ? onSelect : doNothing,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
-            children: [
-              // 封面
-              isMultiSelectMode ?? false
-                  ? Checkbox(
-                      value: isSelected,
-                      onChanged: (value) => onSelect?.call(),
-                    )
-                  : FutureBuilder<ImageProvider>(
-                      future:
-                          ThumbnailGenerator().getThumbnailProvider(song.path),
-                      builder: (context, snapshot) {
-                        double h = 45.0;
-                        if (snapshot.hasData) {
-                          return ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image(
-                              image: snapshot.data!,
-                              width: h,
-                              height: h,
-                              fit: BoxFit.cover,
-                            ),
-                          );
-                        }
-                        return ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Container(
-                            width: h,
-                            height: h,
-                            color: Colors.grey.shade200,
-                            child: const Icon(
-                              Icons.music_note,
-                              size: 24,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-              const SizedBox(width: 16),
-
-              // 歌曲信息
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      song.title ?? '未知曲名',
-                      style: Theme.of(context).textTheme.titleMedium,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    Text(
-                      song.artist ?? '未知歌手',
-                      style: Theme.of(context).textTheme.bodySmall,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+    return VisibilityDetector(
+      key: ValueKey(widget.song.id),
+      onVisibilityChanged: (visibilityInfo) {
+        if (visibilityInfo.visibleFraction > 0 && !_shouldLoadRealContent) {
+          _isVisible = true;
+          _timer = Timer(const Duration(milliseconds: 300), () {
+            if (mounted && _isVisible) {
+              setState(() {
+                _shouldLoadRealContent = true;
+              });
+            }
+          });
+        } else if (visibilityInfo.visibleFraction == 0) {
+          _isVisible = false;
+          _timer?.cancel();
+          _timer = null;
+        }
+      },
+      child: _shouldLoadRealContent
+          ? GestureDetector(
+              onTap: widget.isMultiSelectMode ?? false
+                  ? widget.onSelect
+                  : doNothing,
+              onDoubleTap:
+                  widget.isMultiSelectMode ?? false ? null : widget.onPlay,
+              onSecondaryTapDown: (details) =>
+                  _showContextMenu(context, details.globalPosition),
+              child: InkWell(
+                mouseCursor: SystemMouseCursors.basic,
+                hoverColor: Colors.grey.withOpacity(0.1),
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                onTap: widget.isMultiSelectMode ?? false
+                    ? widget.onSelect
+                    : doNothing,
+                child: _buildRealContent(),
               ),
+            )
+          : _buildSkeleton(context),
+    );
+  }
 
-              // 专辑信息
-              Expanded(
-                child: Text(
-                  song.album ?? '未知专辑',
-                  style: Theme.of(context).textTheme.bodyMedium,
+  Widget _buildRealContent() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          widget.isMultiSelectMode ?? false
+              ? Checkbox(
+                  value: widget.isSelected,
+                  onChanged: (value) => widget.onSelect?.call(),
+                )
+              : FutureBuilder<ImageProvider>(
+                  future: ThumbnailGenerator()
+                      .getThumbnailProvider(widget.song.path),
+                  builder: (context, snapshot) {
+                    double h = 45.0;
+                    if (snapshot.hasData) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image(
+                          image: snapshot.data!,
+                          width: h,
+                          height: h,
+                          fit: BoxFit.cover,
+                        ),
+                      );
+                    }
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Container(
+                        width: h,
+                        height: h,
+                        color: Colors.grey.shade200,
+                        child: const Icon(
+                          Icons.music_note,
+                          size: 24,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.song.title ?? '未知曲名',
+                  style: Theme.of(context).textTheme.titleMedium,
                   overflow: TextOverflow.ellipsis,
                 ),
-              ),
-
-              // 收藏按钮
-              IconButton(
-                icon: Icon(
-                  song.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  size: 20,
-                  color: song.isFavorite ? Colors.red : null,
+                Text(
+                  widget.song.artist ?? '未知歌手',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                onPressed: onToggleFavorite,
-              ),
-
-              // 时长
-              Text(_formatDuration(song.duration)),
-            ],
+              ],
+            ),
           ),
+          Expanded(
+            child: Text(
+              widget.song.album ?? '未知专辑',
+              style: Theme.of(context).textTheme.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton(
+            icon: Icon(
+              widget.song.isFavorite ? Icons.favorite : Icons.favorite_border,
+              size: 20,
+              color: widget.song.isFavorite ? Colors.red : null,
+            ),
+            onPressed: widget.onToggleFavorite,
+          ),
+          Text(_formatDuration(widget.song.duration)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSkeleton(BuildContext context) {
+    return Shimmer.fromColors(
+      baseColor: Colors.grey.shade300,
+      highlightColor: Colors.grey.shade100,
+      period: const Duration(milliseconds: 1000),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            // 封面骨架
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // 统一信息条（曲名 + 艺术家）骨架
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: 16,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    height: 12,
+                    width: 120,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 16),
+
+            // 收藏按钮 + 时长 一体骨架
+            Container(
+              width: 70,
+              height: 16,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -134,25 +236,17 @@ class SongListItem extends StatelessWidget {
   void _showContextMenu(BuildContext context, Offset position) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    const double menuHeightEstimate = 200.0; // 估算菜单高度，可以根据实际菜单项调整
-
-    // 计算菜单的顶部位置，使其出现在点击位置的上方
+    const double menuHeightEstimate = 200.0;
     double top = position.dy - menuHeightEstimate;
     double left = position.dx;
-
-    // 确保菜单不会超出屏幕顶部
     if (top < 0) {
-      top = position.dy; // 如果超出顶部，则显示在点击位置下方
+      top = position.dy;
     }
-
-    // 确保菜单不会超出屏幕右侧
     final screenWidth = overlay.size.width;
-    const double menuWidthEstimate = 150.0; // 估算菜单宽度，可以根据实际调整
+    const double menuWidthEstimate = 150.0;
     if (left + menuWidthEstimate > screenWidth) {
       left = screenWidth - menuWidthEstimate;
     }
-
-    // 创建 RelativeRect，定义菜单位置
     final RelativeRect relativeRect = RelativeRect.fromLTRB(
       left,
       top,
@@ -165,15 +259,15 @@ class SongListItem extends StatelessWidget {
       position: relativeRect,
       items: [
         PopupMenuItem(
-          onTap: onAddToNext,
+          onTap: widget.onAddToNext,
           child: const Text('下一首播放'),
         ),
         PopupMenuItem(
           child: const Text('加入收藏夹'),
           onTap: () => _showAddToPlaylistDialog(context),
         ),
-        PopupMenuItem(onTap: onPlay, child: const Text('播放')),
-        PopupMenuItem(onTap: onDelete, child: const Text('删除')),
+        PopupMenuItem(onTap: widget.onPlay, child: const Text('播放')),
+        PopupMenuItem(onTap: widget.onDelete, child: const Text('删除')),
       ],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
@@ -197,9 +291,10 @@ class SongListItem extends StatelessWidget {
                   final newPlaylist =
                       await playlistService.createPlaylist(name);
                   await playlistService.addSongToPlaylist(
-                      newPlaylist.id!, song.id!);
+                      newPlaylist.id!, widget.song.id!);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加 ${song.title} 到新收藏夹: $name')),
+                    SnackBar(
+                        content: Text('已添加 ${widget.song.title} 到新收藏夹: $name')),
                   );
                   Navigator.pop(context);
                 }
@@ -218,11 +313,13 @@ class SongListItem extends StatelessWidget {
               return ListTile(
                 title: Text(playlist.name),
                 onTap: () {
-                  playlistService.addSongToPlaylist(playlist.id!, song.id!);
+                  playlistService.addSongToPlaylist(
+                      playlist.id!, widget.song.id!);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content:
-                            Text('已添加 ${song.title} 到收藏夹: ${playlist.name}')),
+                      content: Text(
+                          '已添加 ${widget.song.title} 到收藏夹: ${playlist.name}'),
+                    ),
                   );
                   Navigator.pop(context);
                 },
