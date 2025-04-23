@@ -61,7 +61,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
               Container(
                 height: 80,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
-                color: Theme.of(context).primaryColor.withOpacity(0.05),
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
                 child: Center(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
