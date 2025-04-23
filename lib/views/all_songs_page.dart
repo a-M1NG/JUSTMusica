@@ -1,12 +1,13 @@
+import 'dart:async';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:just_musica/utils/thumbnail_generator.dart';
 import '../models/song_model.dart';
 import '../services/database_service.dart';
 import '../services/music_scanner_service.dart';
-import '../services/playback_service.dart';
-import '../services/favorites_service.dart';
-import '../widgets/song_list_item.dart';
 import 'base_music_page.dart';
+import '../widgets/Thumb_dialog.dart';
 
 class AllSongsPage extends SongListPageBase {
   final DatabaseService databaseService;
@@ -72,12 +73,52 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
   }
 
   Future<void> _importFolder() async {
-    final result = await FilePicker.platform.getDirectoryPath();
-    if (result != null) {
-      var songList = await MusicScannerService().scanMusic(result);
-      await widget.databaseService.batchInsertSongs(songList);
-      await loadSongs();
+    final folderPath = await FilePicker.platform.getDirectoryPath();
+    if (folderPath == null) return;
+
+    // 扫描进度对话框
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const ImportProgressDialog(),
+    );
+    List<SongModel> songList;
+    try {
+      songList = await MusicScannerService().scanMusic(folderPath);
+    } finally {
+      Navigator.of(context).pop();
     }
+    if (songList.isEmpty) return;
+
+    // 缩略图进度对话框：每次都 new 一个，ValueNotifier 会自动从 0 开始
+    final progressController = StreamController<int>();
+    int currentProgress = 0;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => ThumbnailGenerationDialog(
+        totalSongs: songList.length,
+        progressStream: progressController.stream,
+      ),
+    );
+
+    for (var i = 0; i < songList.length; i++) {
+      final song = songList[i];
+      await widget.databaseService.insertSong(song);
+      await ThumbnailGenerator().generateThumbnail(song.path);
+
+      currentProgress = i + 1;
+      progressController.add(currentProgress);
+
+      // 添加微小延迟确保UI更新
+      await Future.delayed(Duration.zero);
+    }
+
+    progressController.close();
+
+    Navigator.of(context).pop();
+    await loadSongs();
   }
 
   Future<void> _importSongs() async {
@@ -141,6 +182,6 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
           .deleteSongs(selectedSongIds.toList(), deleteFile: false);
       await loadSongs();
     }
-    return shouldDeleteFile;
+    return true;
   }
 }

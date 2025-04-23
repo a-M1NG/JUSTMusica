@@ -89,7 +89,7 @@ class ThumbnailGenerator {
 
       // 转换为 jpg，不支持 webp 格式
 
-      final jpgData = img.encodeJpg(thumbnail, quality: 80);
+      final jpgData = img.encodeJpg(thumbnail);
 
       // 保存缩略图
       final thumbFile = File(thumbPath);
@@ -99,6 +99,52 @@ class ThumbnailGenerator {
     } catch (e) {
       print('生成缩略图失败: $e');
       return '';
+    }
+  }
+
+  Future<void> generateThumbnail(String songPath) async {
+    try {
+      // 生成缩略图文件名（MD5 哈希）
+      final fileName = _generateFileName(songPath);
+      final thumbDir = await _getThumbnailDirectory();
+      final thumbPath = '${thumbDir.path}/$fileName';
+
+      // 检查缩略图是否已存在
+      if (await File(thumbPath).exists()) {
+        return;
+      }
+
+      // 提取歌曲封面
+      final tag = await AudioTags.read(songPath);
+      final coverData = tag?.pictures.firstOrNull?.bytes;
+
+      if (coverData == null || coverData.isEmpty) {
+        return;
+      }
+
+      // 解码图像
+      final image = img.decodeImage(coverData);
+      if (image == null) {
+        return; // 解码失败
+      }
+
+      // 调整大小
+      final thumbnail = img.copyResize(
+        image,
+        width: _thumbnailSize,
+        height: _thumbnailSize,
+        interpolation: img.Interpolation.linear,
+      );
+
+      // 转换为 jpg，不支持 webp 格式
+
+      final jpgData = img.encodeJpg(thumbnail, quality: 80);
+
+      // 保存缩略图
+      final thumbFile = File(thumbPath);
+      await thumbFile.writeAsBytes(jpgData);
+    } catch (e) {
+      print('生成缩略图失败: $e');
     }
   }
 
