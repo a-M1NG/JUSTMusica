@@ -4,8 +4,21 @@ import 'services/database_service.dart';
 import 'services/playback_service.dart';
 import 'services/theme_service.dart';
 import 'views/main_page.dart';
+import 'package:window_size/window_size.dart';
+import 'dart:ui';
+import 'dart:io';
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // 仅在桌面平台生效
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    // 设置窗口标题（可选）
+    // setWindowTitle('My Flutter Desktop App');
+
+    // 设置最小尺寸
+    setWindowMinSize(const Size(1160, 600));
+  }
   DatabaseService.init();
   WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
@@ -51,7 +64,7 @@ class MyApp extends StatelessWidget {
           debugPrint(
               "main: Current theme color: ${Theme.of(context).primaryColor}");
           return MaterialApp(
-            title: 'JUST Music',
+            title: "JUST Musica",
             // 直接根据 themeService.themeColor 构建主题
             debugShowCheckedModeBanner: false,
             theme: ThemeData(

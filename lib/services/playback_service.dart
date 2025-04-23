@@ -6,6 +6,7 @@ import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/services/database_service.dart';
 import 'package:logger/logger.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:window_size/window_size.dart';
 
 // 播放模式枚举
 enum PlaybackMode {
@@ -156,6 +157,7 @@ class PlaybackService extends ChangeNotifier {
     try {
       // Windows 平台临时检查（可选）
       if (Platform.isWindows) {
+        setWindowTitle("${song.title} - ${song.artist}");
         _logger.w('Playing on Windows with audioplayers: ${song.title}');
       }
 

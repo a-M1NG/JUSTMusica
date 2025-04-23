@@ -42,6 +42,7 @@ dependencies:
   logger: ^2.5.0           # 日志记录
   logging: ^1.3.0          # 日志记录（新增）
   rxdart: ^0.28.0          # 响应式编程支持（新增）
+  window_size: ^0.1.0      # 
 
 dev_dependencies:
   flutter_test:
