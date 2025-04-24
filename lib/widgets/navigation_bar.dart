@@ -47,11 +47,19 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
             child: SvgPicture.asset('assets/images/text_logo.svg',
                 width: 80, height: 30, color: Colors.white),
           ),
-          _buildNavItem(0, '所有歌曲', Icons.library_music),
-          _buildNavItem(1, '我喜欢', Icons.favorite),
-          _buildNavItem(2, '播放列表', Icons.queue_music),
-          _buildPlaylistsSection(),
-          const Spacer(),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                children: [
+                  _buildNavItem(0, '所有歌曲', Icons.library_music),
+                  _buildNavItem(1, '我喜欢', Icons.favorite),
+                  _buildNavItem(2, '播放列表', Icons.queue_music),
+                  _buildPlaylistsSection(),
+                ],
+              ),
+            ),
+          ),
+          // const Spacer(),
           // _buildSettingsButton(context),
           _buildNavItem(lastIndex, '设置', Icons.settings),
         ],
