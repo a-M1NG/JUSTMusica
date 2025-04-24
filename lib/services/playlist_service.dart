@@ -2,7 +2,7 @@ import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/models/playlist_model.dart';
 import 'package:logger/logger.dart';
 import 'package:sqflite/sqflite.dart';
-
+import 'dart:io';
 class PlaylistService {
   final Database _database;
   final Logger _logger = Logger();
@@ -298,6 +298,70 @@ class PlaylistService {
       return songs;
     } catch (e) {
       _logger.e('Failed to fetch songs for playlist $playlistId: $e');
+      rethrow;
+    }
+  }
+
+  /// 更新收藏夹名称
+  Future<void> updatePlaylistName(int playlistId, String newName) async {
+    try {
+      final updated = await _database.update(
+        'Playlists',
+        {'name': newName},
+        where: 'id = ?',
+        whereArgs: [playlistId],
+      );
+
+      if (updated == 0) {
+        _logger.w('No playlist with ID $playlistId found to update name');
+      } else {
+        _logger.i('Updated playlist $playlistId name to "$newName"');
+      }
+    } catch (e) {
+      _logger.e('Failed to update playlist name for $playlistId: $e');
+      rethrow;
+    }
+  }
+
+  /// 更新收藏夹封面
+  Future<void> updatePlaylistCover(int playlistId, String coverPath) async {
+    try {
+      // 检查路径是否为空
+      if (coverPath.isEmpty) {
+        _logger.w('Cover path is empty for playlist $playlistId');
+        throw Exception('Cover path cannot be empty');
+      }
+
+      // 检查文件是否存在
+      final file = File(coverPath);
+      if (!await file.exists()) {
+        _logger.w('Cover file does not exist: $coverPath');
+        throw Exception('Cover file does not exist: $coverPath');
+      }
+
+      // 检查文件是否可访问（尝试读取文件）
+      try {
+        await file.length(); // 尝试获取文件大小，确保文件可访问
+      } catch (e) {
+        _logger.w('Cover file is not accessible: $coverPath, error: $e');
+        throw Exception('Cover file is not accessible: $coverPath, error: $e');
+      }
+
+      // 更新数据库
+      final updated = await _database.update(
+        'Playlists',
+        {'cover_path': coverPath},
+        where: 'id = ?',
+        whereArgs: [playlistId],
+      );
+
+      if (updated == 0) {
+        _logger.w('No playlist with ID $playlistId found to update cover');
+      } else {
+        _logger.i('Updated playlist $playlistId cover to "$coverPath"');
+      }
+    } catch (e) {
+      _logger.e('Failed to update playlist cover for $playlistId: $e');
       rethrow;
     }
   }
