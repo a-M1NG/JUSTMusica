@@ -7,6 +7,7 @@ import 'package:just_musica/services/database_service.dart';
 import 'package:logger/logger.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:window_size/window_size.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // 播放模式枚举
 enum PlaybackMode {
@@ -32,7 +33,8 @@ class PlaybackState {
 }
 
 class PlaybackService extends ChangeNotifier {
-  final AudioPlayer _audioPlayer = AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
+  final AudioPlayer _audioPlayer =
+      AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
   final DatabaseService _dbService = DatabaseService();
   final Logger _logger = Logger();
 
@@ -75,8 +77,47 @@ class PlaybackService extends ChangeNotifier {
 
   void _init() {
     // 初始化音量
-    _audioPlayer.setVolume(_volume);
-    _volumeSubject.add(_volume); // 初始音量值
+    final prefs = SharedPreferences.getInstance();
+    prefs.then((prefs) {
+      _volume = prefs.getDouble('volume') ?? 1.0; // 默认音量为 1.0
+      _audioPlayer.setVolume(_volume);
+      _volumeSubject.add(_volume); // 初始音量值
+      //设置播放模式
+      final modeString =
+          prefs.getString('playback_mode') ?? 'PlaybackMode.sequential';
+      switch (modeString) {
+        case 'PlaybackMode.random':
+          _playbackMode = PlaybackMode.random;
+          break;
+        case 'PlaybackMode.singleLoop':
+          _playbackMode = PlaybackMode.singleLoop;
+          break;
+        case 'PlaybackMode.sequential':
+          _playbackMode = PlaybackMode.sequential;
+          break;
+        case 'PlaybackMode.loopAll':
+          _playbackMode = PlaybackMode.loopAll;
+          break;
+        default:
+          _playbackMode = PlaybackMode.sequential;
+      }
+      // 设置最后播放的歌曲
+      final lastPlayedSongId = prefs.getInt('last_played_song_id');
+      if (lastPlayedSongId != null) {
+        _dbService.getSongById(lastPlayedSongId).then((song) async {
+          if (song != null) {
+            await playSong(song);
+            await pause();
+          }
+        }).catchError((error) {
+          _logger.e('Failed to load last played song: $error');
+        });
+      }
+    }).catchError((error) {
+      _logger.e('Failed to load volume from SharedPreferences: $error');
+    });
+    // _audioPlayer.setVolume(_volume);
+    // _volumeSubject.add(_volume); // 初始音量值
 
     // 监听播放位置
     _audioPlayer.onPositionChanged.listen((position) {
@@ -122,6 +163,8 @@ class PlaybackService extends ChangeNotifier {
   /// [value] 音量值，范围 0.0（静音）到 1.0（最大音量）
   Future<void> setVolume(double value) async {
     try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('volume', value); // 保存音量值到本地
       // 确保音量值在 0.0 到 1.0 之间
       _volume = value.clamp(0.0, 1.0);
       await _audioPlayer.setVolume(_volume);
@@ -177,7 +220,7 @@ class PlaybackService extends ChangeNotifier {
 
   /// 获取当前播放列表
   Future<List<SongModel>> getPlaybackList() async {
-    return List.unmodifiable(_currentPlaylist);
+    return List.unmodifiable(currentPlaylist);
   }
 
   /// 获取当前播放索引
@@ -192,7 +235,9 @@ class PlaybackService extends ChangeNotifier {
         setWindowTitle("${song.title} - ${song.artist}");
         _logger.w('Playing on Windows with audioplayers: ${song.title}');
       }
-
+      final prefs = await SharedPreferences.getInstance();
+      // 记录最后播放的歌曲id
+      await prefs.setInt('last_played_song_id', song.id!);
       if (_currentPlaylist.isEmpty) {
         _currentPlaylist = await _dbService.getAllSongs();
       }
@@ -301,6 +346,8 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> setPlaybackMode(PlaybackMode mode) async {
     _playbackMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('playback_mode', mode.toString());
     // _updatePlaybackState();
     _logger.i('Playback mode set to $mode');
     notifyListeners();
