@@ -51,9 +51,9 @@ class _SongListItemState extends State<SongListItem> {
     return VisibilityDetector(
       key: ValueKey(widget.song.id),
       onVisibilityChanged: (visibilityInfo) {
-        if (visibilityInfo.visibleFraction > 0 && !_shouldLoadRealContent) {
+        if (visibilityInfo.visibleFraction > 0.5 && !_shouldLoadRealContent) {
           _isVisible = true;
-          _timer = Timer(const Duration(milliseconds: 300), () {
+          _timer = Timer(const Duration(milliseconds: 150), () {
             if (mounted && _isVisible) {
               setState(() {
                 _shouldLoadRealContent = true;
@@ -62,8 +62,8 @@ class _SongListItemState extends State<SongListItem> {
           });
         } else if (visibilityInfo.visibleFraction == 0) {
           _isVisible = false;
-          _timer?.cancel();
-          _timer = null;
+          // _timer?.cancel();
+          // _timer = null;
         }
       },
       child: _shouldLoadRealContent

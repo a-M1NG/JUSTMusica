@@ -29,7 +29,20 @@ class _PlaylistDetailPageState
   ImageProvider? _coverImage;
 
   @override
+  void didUpdateWidget(PlaylistDetailPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.playlist.id != oldWidget.playlist.id) {
+      // 收藏夹ID变化时，重新加载歌曲
+      setState(() {
+        songsFuture = loadSongsImplementation();
+        _coverImage = null; // 清空封面图，重新加载
+      });
+    }
+  }
+
+  @override
   Future<List<SongModel>> loadSongsImplementation() async {
+    debugPrint("load songs for playlist ${widget.playlist.id}");
     final songs =
         await widget.playlistService.getPlaylistSongs(widget.playlist.id!);
     if (songs.isNotEmpty) {
@@ -44,6 +57,7 @@ class _PlaylistDetailPageState
         _coverImage = null;
       }
     }
+    debugPrint("get songs for playlist ${widget.playlist.id}: ${songs.length}");
     return songs;
   }
 
@@ -209,9 +223,12 @@ class _PlaylistDetailPageState
             onPressed: () async {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty) {
-                // await widget.playlistService.updatePlaylist(widget.playlist.id!, newName);
+                await widget.playlistService
+                    .updatePlaylistName(widget.playlist.id!, newName);
+                widget.playlist.name = newName;
                 Navigator.pop(context);
                 setState(() {});
+                CreateMessage("歌单名称已更新为: \"${newName}\"", context);
               }
             },
             child: const Text('保存'),
