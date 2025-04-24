@@ -1,7 +1,7 @@
 import 'dart:math';
 import 'dart:io'; // 用于 Platform.isWindows 检查
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart'; // 替换 just_audio 为 audioplayers
+import 'package:audioplayers/audioplayers.dart';
 import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/services/database_service.dart';
 import 'package:logger/logger.dart';
@@ -10,10 +10,10 @@ import 'package:window_size/window_size.dart';
 
 // 播放模式枚举
 enum PlaybackMode {
-  random,
-  singleLoop,
-  sequential,
-  loopAll,
+  random, // 随机播放
+  singleLoop, // 单曲循环
+  sequential, // 顺序播放
+  loopAll, // 全部循环
 }
 
 // 播放状态类
@@ -32,16 +32,27 @@ class PlaybackState {
 }
 
 class PlaybackService extends ChangeNotifier {
-  final AudioPlayer _audioPlayer =
-      AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
+  final AudioPlayer _audioPlayer = AudioPlayer(); // 使用 audioplayers 的 AudioPlayer
   final DatabaseService _dbService = DatabaseService();
   final Logger _logger = Logger();
-  //PlaybackMode的getter和setter:
+
+  // 音量属性，范围 0.0 到 1.0
+  double _volume = 1.0;
+  double get volume => _volume;
+  set volume(double value) {
+    setVolume(value);
+  }
+
+  // 音量流
+  final _volumeSubject = BehaviorSubject<double>.seeded(1.0);
+  Stream<double> get volumeStream => _volumeSubject.stream;
+
+  // PlaybackMode 的 getter 和 setter
   PlaybackMode get playbackMode => _playbackMode;
   set playbackMode(PlaybackMode mode) {
     _playbackMode = mode;
-    // _updatePlaybackState();
-    // notifyListeners();
+    _logger.i('Playback mode set to $mode');
+    notifyListeners();
   }
 
   final _playbackStateSubject = BehaviorSubject<PlaybackState>();
@@ -54,6 +65,7 @@ class PlaybackService extends ChangeNotifier {
   int _currentIndex = -1;
   PlaybackMode _playbackMode = PlaybackMode.sequential;
   List<SongModel> get currentPlaylist => _playNextSongs + _currentPlaylist;
+
   PlaybackService() {
     _init();
   }
@@ -62,6 +74,10 @@ class PlaybackService extends ChangeNotifier {
       _playbackStateSubject.stream.map((state) => state.currentSong).distinct();
 
   void _init() {
+    // 初始化音量
+    _audioPlayer.setVolume(_volume);
+    _volumeSubject.add(_volume); // 初始音量值
+
     // 监听播放位置
     _audioPlayer.onPositionChanged.listen((position) {
       _updatePlaybackState(position: position);
@@ -100,6 +116,22 @@ class PlaybackService extends ChangeNotifier {
       isPlaying: isPlaying ?? currentState.isPlaying,
       // mode: _playbackMode,
     ));
+  }
+
+  /// 设置音量
+  /// [value] 音量值，范围 0.0（静音）到 1.0（最大音量）
+  Future<void> setVolume(double value) async {
+    try {
+      // 确保音量值在 0.0 到 1.0 之间
+      _volume = value.clamp(0.0, 1.0);
+      await _audioPlayer.setVolume(_volume);
+      _volumeSubject.add(_volume); // 通知音量变化
+      _logger.i('Volume set to $_volume');
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Failed to set volume to $value: $e');
+      rethrow;
+    }
   }
 
   /// 设置播放列表
@@ -175,6 +207,8 @@ class PlaybackService extends ChangeNotifier {
 
       // 使用 audioplayers 播放本地文件
       await _audioPlayer.play(DeviceFileSource(song.path));
+      // 应用当前音量
+      await _audioPlayer.setVolume(_volume);
       _updatePlaybackState(currentSong: song, isPlaying: true);
       _logger.i('Playing song: ${song.title}');
       notifyListeners();
@@ -269,7 +303,7 @@ class PlaybackService extends ChangeNotifier {
     _playbackMode = mode;
     // _updatePlaybackState();
     _logger.i('Playback mode set to $mode');
-    // notifyListeners();
+    notifyListeners();
   }
 
   Future<void> seekTo(int seconds) async {
@@ -314,6 +348,7 @@ class PlaybackService extends ChangeNotifier {
   void dispose() {
     _audioPlayer.dispose();
     _playbackStateSubject.close();
+    _volumeSubject.close(); // 关闭音量流
     super.dispose();
   }
 }
