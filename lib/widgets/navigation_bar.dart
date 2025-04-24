@@ -15,6 +15,7 @@ class NavigationBarWidget extends StatefulWidget {
   final PlaylistService playlistService;
   final FavoritesService favoritesService;
   final PlaybackService playbackService;
+  final Function() onPlaylistsChanged;
   const NavigationBarWidget({
     super.key,
     required this.selectedIndex,
@@ -22,6 +23,7 @@ class NavigationBarWidget extends StatefulWidget {
     required this.playlistService,
     required this.favoritesService,
     required this.playbackService,
+    required this.onPlaylistsChanged,
   });
 
   @override
@@ -31,6 +33,7 @@ class NavigationBarWidget extends StatefulWidget {
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   bool _playlistsExpanded = true;
   bool _isHovering = false;
+  int lastIndex = 4;
   @override
   Widget build(BuildContext context) {
     debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
@@ -46,10 +49,11 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
           ),
           _buildNavItem(0, '所有歌曲', Icons.library_music),
           _buildNavItem(1, '我喜欢', Icons.favorite),
+          _buildNavItem(2, '播放列表', Icons.queue_music),
           _buildPlaylistsSection(),
-          _buildNavItem(3, '播放列表', Icons.queue_music),
           const Spacer(),
-          _buildSettingsButton(context),
+          // _buildSettingsButton(context),
+          _buildNavItem(lastIndex, '设置', Icons.settings),
         ],
       ),
     );
@@ -110,34 +114,36 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
             builder: (context, snapshot) {
               if (!snapshot.hasData) return const SizedBox();
               final playlists = snapshot.data!;
+              lastIndex = 4 + playlists.length;
               return Column(
-                children: playlists
-                    .map((playlist) => GestureDetector(
-                          onSecondaryTapDown: (details) => _showContextMenu(
-                              context, details.globalPosition, playlist),
-                          child: ListTile(
-                            leading: playlist.coverPath != null
-                                ? Image.file(File(playlist.coverPath!),
-                                    width: 40, height: 40)
-                                : const Icon(Icons.music_note),
-                            title: Text(playlist.name),
-                            onTap: () {
-                              // 跳转到具体收藏夹页面
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => PlaylistDetailPage(
-                                        playlist: playlist,
-                                        playlistService: widget.playlistService,
-                                        favoritesService:
-                                            widget.favoritesService,
-                                        playbackService:
-                                            widget.playbackService)),
-                              );
-                            },
-                          ),
-                        ))
-                    .toList(),
+                children: playlists.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final playlist = entry.value;
+                  return GestureDetector(
+                    onSecondaryTapDown: (details) => _showContextMenu(
+                        context, details.globalPosition, playlist),
+                    child: ListTile(
+                      leading: playlist.coverPath != null
+                          ? Image.file(File(playlist.coverPath!),
+                              width: 40, height: 40)
+                          : const Icon(Icons.music_note),
+                      title: Text(playlist.name),
+                      onTap: () {
+                        // 跳转到具体收藏夹页面
+                        widget.onItemTapped(4 + i);
+                        // Navigator.push(
+                        //   context,
+                        //   MaterialPageRoute(
+                        //       builder: (_) => PlaylistDetailPage(
+                        //           playlist: playlist,
+                        //           playlistService: widget.playlistService,
+                        //           favoritesService: widget.favoritesService,
+                        //           playbackService: widget.playbackService)),
+                        // );
+                      },
+                    ),
+                  );
+                }).toList(),
               );
             },
           ),
@@ -207,6 +213,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     if (confirm == true) {
       await widget.playlistService.deletePlaylist(playlist.id!);
       setState(() {});
+      widget.onPlaylistsChanged();
     }
   }
 
@@ -236,6 +243,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       // 调用后端接口创建收藏夹
       await widget.playlistService.createPlaylist(name);
       setState(() {});
+      widget.onPlaylistsChanged();
     }
   }
 

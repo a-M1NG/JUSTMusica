@@ -10,6 +10,9 @@ import 'playback_list_page.dart';
 import '../services/database_service.dart';
 import '../services/favorites_service.dart';
 import '../services/playlist_service.dart';
+import 'setting_page.dart';
+import 'playlist_detail_page.dart';
+import '../models/playlist_model.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -20,6 +23,7 @@ class MainPage extends StatefulWidget {
 
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
+  late List<PlaylistModel> _playlists;
   DatabaseService? _dbService;
   FavoritesService? _favoritesService;
   PlaylistService? _playlistService;
@@ -30,8 +34,7 @@ class _MainPageState extends State<MainPage> {
     if (_favoritesService == null || _playlistService == null) {
       return [const Center(child: CircularProgressIndicator())];
     }
-
-    return [
+    List<Widget> res = [
       AllSongsPage(
         favoritesService: _favoritesService!,
         databaseService: _dbService!,
@@ -41,16 +44,25 @@ class _MainPageState extends State<MainPage> {
         favoritesService: _favoritesService!,
         playbackService: _playbackService!,
       ),
+      PlaybackListPage(
+        favoritesService: _favoritesService!,
+        playbackService: _playbackService!,
+      ),
       PlaylistsPage(
         playlistService: _playlistService!,
         favoritesService: _favoritesService!,
         playbackService: _playbackService!,
       ),
-      PlaybackListPage(
-        favoritesService: _favoritesService!,
-        playbackService: _playbackService!,
-      ),
     ];
+    for (var playlist in _playlists) {
+      res.add(PlaylistDetailPage(
+          playlist: playlist,
+          playlistService: _playlistService!,
+          favoritesService: _favoritesService!,
+          playbackService: _playbackService!));
+    }
+    res.add(SettingsPage());
+    return res;
   }
 
   @override
@@ -71,6 +83,8 @@ class _MainPageState extends State<MainPage> {
       _playlistService = PlaylistService(db);
       _playbackService = PlaybackService();
 
+      await _updatePlaylists();
+
       setState(() {
         _isInitializing = false;
       });
@@ -80,6 +94,11 @@ class _MainPageState extends State<MainPage> {
       debugPrint('Service initialization failed: $e');
       // You might want to show an error screen here
     }
+  }
+
+  Future<void> _updatePlaylists() async {
+    _playlists = await _playlistService!.getPlaylists();
+    setState(() {}); // 触发 _pages 重建
   }
 
   @override
@@ -117,6 +136,7 @@ class _MainPageState extends State<MainPage> {
               playlistService: _playlistService!,
               favoritesService: _favoritesService!,
               playbackService: _playbackService!,
+              onPlaylistsChanged: _updatePlaylists,
             ),
             Expanded(
               child: Stack(

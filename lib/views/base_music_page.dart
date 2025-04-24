@@ -20,7 +20,7 @@ abstract class SongListPageBase extends StatefulWidget {
 abstract class SongListPageBaseState<T extends SongListPageBase>
     extends State<T> {
   late Future<List<SongModel>> songsFuture;
-  List<SongModel> _loadedSongs = [];
+  List<SongModel> loadedSongs = [];
   Set<int> selectedSongIds = {};
   @override
   void initState() {
@@ -28,6 +28,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     loadSongs();
   }
 
+  final ScrollController _scrollController = ScrollController();
   // 抽象方法：加载歌曲列表
   Future<List<SongModel>> loadSongsImplementation();
 
@@ -36,14 +37,20 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     songsFuture = loadSongsImplementation();
     songsFuture.then((songs) {
       setState(() {
-        _loadedSongs = songs;
+        loadedSongs = songs;
       });
     });
   }
 
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   // 播放歌曲
   void playSong(SongModel song) {
-    widget.playbackService.setPlaybackList(_loadedSongs);
+    widget.playbackService.setPlaybackList(loadedSongs);
     widget.playbackService.playSong(song);
   }
 
@@ -248,20 +255,17 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       extendBodyBehindAppBar: !hasHeader,
       appBar: AppBar(
         title: Text(getPageTitle()),
-        backgroundColor: !hasHeader
-            ? Colors.transparent
-            : Theme.of(context).primaryColor.withOpacity(0.1),
+        backgroundColor: Theme.of(context).primaryColor,
         elevation: 0,
         actions: isMultiSelectMode
             ? [
-                //全选
                 ElevatedButton.icon(
                   icon: const Icon(Icons.select_all, size: 20),
                   label: const Text('全选'),
                   onPressed: () {
                     setState(() {
                       selectedSongIds.clear();
-                      for (var song in _loadedSongs) {
+                      for (var song in loadedSongs) {
                         selectedSongIds.add(song.id!);
                       }
                     });
@@ -330,7 +334,6 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
         color: Theme.of(context).primaryColor.withOpacity(0.2),
         child: Column(
           children: [
-            if (hasHeader) getHeader()!,
             Expanded(
               child: FutureBuilder<List<SongModel>>(
                 future: songsFuture,
@@ -354,30 +357,58 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                   if (songs.isEmpty) {
                     return Center(child: Text(getEmptyMessage()));
                   }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: songs.length,
-                    cacheExtent: 1400,
-                    itemExtent: 61,
-                    addAutomaticKeepAlives: false,
-                    itemBuilder: (context, index) {
-                      return SongListItem(
-                        song: songs[index],
-                        index: index + 1,
-                        onPlay: () => playSong(songs[index]),
-                        onToggleFavorite: () => toggleFavorite(songs[index]),
-                        onDelete: () => deleteSong(songs[index]),
-                        onAddToNext: () => addToNext(songs[index]),
-                        onSelect: () => toggleSelection(songs[index].id!),
-                        isSelected: selectedSongIds.contains(songs[index].id!),
-                        isMultiSelectMode: isMultiSelectMode,
-                      );
-                    },
-                  );
+                  if (hasHeader) {
+                    return ListView.builder(
+                      cacheExtent: 2000,
+                      controller: _scrollController,
+                      itemCount: songs.length + 1,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return getHeader()!;
+                        } else {
+                          final songIndex = index - 1;
+                          return SongListItem(
+                            song: songs[songIndex],
+                            index: index, // 显示序号从 1 开始
+                            onPlay: () => playSong(songs[songIndex]),
+                            onToggleFavorite: () =>
+                                toggleFavorite(songs[songIndex]),
+                            onDelete: () => deleteSong(songs[songIndex]),
+                            onAddToNext: () => addToNext(songs[songIndex]),
+                            onSelect: () =>
+                                toggleSelection(songs[songIndex].id!),
+                            isSelected:
+                                selectedSongIds.contains(songs[songIndex].id!),
+                            isMultiSelectMode: isMultiSelectMode,
+                          );
+                        }
+                      },
+                    );
+                  } else {
+                    return ListView.builder(
+                      cacheExtent: 2000,
+                      controller: _scrollController,
+                      itemCount: songs.length,
+                      itemBuilder: (context, index) {
+                        return SongListItem(
+                          song: songs[index],
+                          index: index + 1, // 显示序号从 1 开始
+                          onPlay: () => playSong(songs[index]),
+                          onToggleFavorite: () => toggleFavorite(songs[index]),
+                          onDelete: () => deleteSong(songs[index]),
+                          onAddToNext: () => addToNext(songs[index]),
+                          onSelect: () => toggleSelection(songs[index].id!),
+                          isSelected:
+                              selectedSongIds.contains(songs[index].id!),
+                          isMultiSelectMode: isMultiSelectMode,
+                        );
+                      },
+                    );
+                  }
                 },
               ),
             ),
-            if (hasHeader) getFooter()!,
+            // if (hasHeader) getFooter()!, // 根据当前逻辑，只有 hasHeader 时显示 footer
           ],
         ),
       ),
