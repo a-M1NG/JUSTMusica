@@ -47,7 +47,7 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
   }
 
   @override
-  String getPageTitle() => '';
+  String getPageTitle() => '播放列表';
 
   @override
   List<Widget> getAppBarActions() => [];

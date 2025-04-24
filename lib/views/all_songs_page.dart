@@ -135,7 +135,7 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
   }
 
   @override
-  String getPageTitle() => '';
+  String getPageTitle() => '所有歌曲';
 
   @override
   List<Widget> getAppBarActions() => [

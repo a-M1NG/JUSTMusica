@@ -36,7 +36,7 @@ class _FavoritesPageState extends SongListPageBaseState<FavoritesPage> {
   }
 
   @override
-  String getPageTitle() => '';
+  String getPageTitle() => '我喜欢的音乐';
 
   @override
   List<Widget> getAppBarActions() => [];

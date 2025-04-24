@@ -2,7 +2,7 @@ import 'song_model.dart';
 
 class PlaylistModel {
   final int? id;
-  final String name;
+  String name;
   final DateTime createdAt;
   final String? coverPath; // 新增 coverPath 字段
   final List<SongModel>? songs;
