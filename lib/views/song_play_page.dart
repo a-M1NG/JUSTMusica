@@ -9,6 +9,7 @@ import '../utils/thumbnail_generator.dart';
 import '../widgets/lyrics_display.dart';
 import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
+import 'package:just_musica/widgets/volume_controller.dart';
 
 class SongPlayPage extends StatefulWidget {
   SongModel song;
@@ -217,23 +218,6 @@ class _SongPlayPageState extends State<SongPlayPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.skip_previous, size: 24),
-                  onPressed: widget.playbackService.previous,
-                ),
-                IconButton(
-                  icon: Icon(
-                    isPlaying ? Icons.pause : Icons.play_arrow,
-                    size: 32,
-                  ),
-                  onPressed: isPlaying
-                      ? widget.playbackService.pause
-                      : widget.playbackService.resume,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.skip_next, size: 24),
-                  onPressed: widget.playbackService.next,
-                ),
                 ValueListenableBuilder<PlaybackMode>(
                   valueListenable: _playbackModeNotifier,
                   builder: (context, mode, child) {
@@ -257,6 +241,24 @@ class _SongPlayPageState extends State<SongPlayPage> {
                       onPressed: _switchPlayBackMode,
                     );
                   },
+                ),
+                VolumeController(playbackService: widget.playbackService),
+                IconButton(
+                  icon: const Icon(Icons.skip_previous, size: 24),
+                  onPressed: widget.playbackService.previous,
+                ),
+                IconButton(
+                  icon: Icon(
+                    isPlaying ? Icons.pause : Icons.play_arrow,
+                    size: 32,
+                  ),
+                  onPressed: isPlaying
+                      ? widget.playbackService.pause
+                      : widget.playbackService.resume,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next, size: 24),
+                  onPressed: widget.playbackService.next,
                 ),
                 IconButton(
                   icon: Icon(

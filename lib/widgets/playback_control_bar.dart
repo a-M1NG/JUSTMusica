@@ -9,6 +9,7 @@ import 'package:marquee/marquee.dart';
 import '../utils/thumbnail_generator.dart';
 import '../views/song_play_page.dart';
 import '../utils/tools.dart';
+import 'package:just_musica/widgets/volume_controller.dart';
 
 class PlaybackControlBar extends StatefulWidget {
   const PlaybackControlBar({
@@ -294,6 +295,13 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
       mainAxisSize: MainAxisSize.min,
       children: [
         IconButton(
+          icon: Icon(
+            song.isFavorite ? Icons.favorite : Icons.favorite_border,
+            color: song.isFavorite ? Colors.red : null,
+          ),
+          onPressed: () => _toggleFavorite(context, song),
+        ),
+        IconButton(
           icon: const Icon(Icons.skip_previous),
           onPressed: widget.playbackService.previous,
         ),
@@ -333,13 +341,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
             );
           },
         ),
-        IconButton(
-          icon: Icon(
-            song.isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: song.isFavorite ? Colors.red : null,
-          ),
-          onPressed: () => _toggleFavorite(context, song),
-        ),
+        VolumeController(playbackService: widget.playbackService),
         IconButton(
           icon: const Icon(Icons.playlist_add),
           onPressed: () => _showAddToPlaylistDialog(context, song),
