@@ -8,6 +8,7 @@ import 'package:logger/logger.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:window_size/window_size.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/thumbnail_generator.dart';
 
 // 播放模式枚举
 enum PlaybackMode {
@@ -256,6 +257,9 @@ class PlaybackService extends ChangeNotifier {
       await _audioPlayer.setVolume(_volume);
       _updatePlaybackState(currentSong: song, isPlaying: true);
       _logger.i('Playing song: ${song.title}');
+      // 预取信息
+      await ThumbnailGenerator().prefetchInfo(song);
+      _logger.i('Prefetched info for song: ${song.title} - ${song.artist}');
       notifyListeners();
     } catch (e) {
       _logger.e('Failed to play song ${song.title}: $e');

@@ -114,14 +114,37 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
         splashColor: Theme.of(context).primaryColor.withOpacity(0.2),
         onTap: () {
           Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (_) => SongPlayPage(
-                        song: song,
-                        playbackService: widget.playbackService,
-                        favoritesService: widget.favoritesService,
-                        playlistService: widget.playlistService,
-                      )));
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  SongPlayPage(
+                song: song,
+                playbackService: widget.playbackService,
+                favoritesService: widget.favoritesService,
+                playlistService: widget.playlistService,
+              ),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
+                var begin = const Offset(0.0, 1.0); // 从底部开始
+                var end = Offset.zero;
+                var curve = Curves.easeInOutCubic;
+
+                var tween = Tween(begin: begin, end: end).chain(
+                  CurveTween(curve: curve),
+                );
+
+                return SlideTransition(
+                  position: animation.drive(tween),
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: child,
+                  ),
+                );
+              },
+              transitionDuration: const Duration(milliseconds: 300),
+              reverseTransitionDuration: const Duration(milliseconds: 300),
+            ),
+          );
         },
         child: Row(
           children: [
@@ -129,12 +152,15 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
               future: ThumbnailGenerator().getThumbnailProvider(song.path),
               builder: (context, snapshot) {
                 if (snapshot.hasData) {
-                  return Image(
-                    image: snapshot.data!,
-                    width: 80,
-                    height: 80,
-                    errorBuilder: (_, __, ___) =>
-                        const Icon(Icons.music_note, size: 80),
+                  return Hero(
+                    tag: 'song-cover-${song.id}',
+                    child: Image(
+                      image: snapshot.data!,
+                      width: 80,
+                      height: 80,
+                      errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.music_note, size: 80),
+                    ),
                   );
                 }
                 return const Icon(Icons.music_note, size: 80);
