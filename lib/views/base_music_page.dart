@@ -255,7 +255,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       extendBodyBehindAppBar: !hasHeader,
       appBar: AppBar(
         title: Text(getPageTitle()),
-        backgroundColor: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).primaryColor.withAlpha(220),
         elevation: 0,
         actions: isMultiSelectMode
             ? [

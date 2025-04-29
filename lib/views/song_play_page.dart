@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/song_model.dart';
@@ -10,6 +11,7 @@ import '../widgets/lyrics_display.dart';
 import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
 import 'package:just_musica/widgets/volume_controller.dart';
+import 'package:palette_generator/palette_generator.dart';
 
 class SongPlayPage extends StatefulWidget {
   SongModel song;
@@ -32,10 +34,12 @@ class _SongPlayPageState extends State<SongPlayPage> {
   late StreamSubscription _currentSongSubscription;
   late Future<String> _lyricsFuture;
   late ValueNotifier<PlaybackMode> _playbackModeNotifier;
-
-  // Color _backgroundColor = Colors.blue;
+  bool _isLoading = true;
+  Image? _coverImage;
+  LinearGradient? _gradient;
   SongModel? _currentSong;
   PlaybackMode _currentPlayBackMode = PlaybackMode.sequential;
+
   @override
   void initState() {
     super.initState();
@@ -44,18 +48,32 @@ class _SongPlayPageState extends State<SongPlayPage> {
       setState(() {
         _currentSong = song;
         _lyricsFuture = LyricsService().getLrcForSong(song);
+        _loadAssets(); // Reload assets when song changes
       });
     });
     widget.song = widget.playbackService.currentSong;
     _lyricsFuture = LyricsService().getLrcForSong(widget.song);
-    // _backgroundColor = Colors.blue; // 默认底色
     _currentPlayBackMode = widget.playbackService.playbackMode;
     _playbackModeNotifier = ValueNotifier<PlaybackMode>(_currentPlayBackMode);
+    _loadAssets();
+  }
+
+  Future<void> _loadAssets() async {
+    final song = _currentSong ?? widget.song;
+    final coverFuture = ThumbnailGenerator().getOriginCover(song.path);
+    final gradientFuture = ThumbnailGenerator().generateGradient(song);
+    final results = await Future.wait([coverFuture, gradientFuture]);
+    setState(() {
+      _coverImage = results[0] as Image;
+      _gradient = results[1] as LinearGradient?;
+      _isLoading = false;
+    });
   }
 
   @override
   void dispose() {
     _currentSongSubscription.cancel();
+    _playbackModeNotifier.dispose();
     super.dispose();
   }
 
@@ -68,14 +86,36 @@ class _SongPlayPageState extends State<SongPlayPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     final currentSong = _currentSong ?? widget.song;
     return Scaffold(
-      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.6),
       body: Stack(
         children: [
+          // Gradient background
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 500),
+            decoration: BoxDecoration(
+              gradient: _gradient ??
+                  LinearGradient(
+                    colors: [
+                      Theme.of(context).primaryColor.withOpacity(0.6),
+                      Theme.of(context).primaryColorDark.withOpacity(0.8),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+            ),
+          ),
+
+          // Content
           Row(
             children: [
-              // 左侧：封面和播放控制
+              // Left side: Cover and playback controls
               Expanded(
                 flex: 1,
                 child: Padding(
@@ -83,15 +123,26 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildCover(currentSong),
-                      const SizedBox(height: 16),
-                      _buildPlaybackControls(context, widget.playlistService,
-                          widget.favoritesService),
+                      Expanded(flex: 1, child: Container()), // Empty space
+                      Expanded(
+                        flex: 5,
+                        child: _buildCover(currentSong),
+                      ),
+                      const SizedBox(height: 24),
+                      Expanded(
+                        flex: 2,
+                        child: _buildPlaybackControls(
+                          context,
+                          widget.playlistService,
+                          widget.favoritesService,
+                        ),
+                      ),
                     ],
                   ),
                 ),
               ),
-              // 右侧：歌曲信息和歌词
+
+              // Right side: Song info and lyrics
               Expanded(
                 flex: 1,
                 child: Padding(
@@ -113,7 +164,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
               ),
             ],
           ),
-          // 左上角收回按钮
+
+          // Back button
           Positioned(
             top: 16,
             left: 16,
@@ -128,27 +180,23 @@ class _SongPlayPageState extends State<SongPlayPage> {
   }
 
   Widget _buildCover(SongModel song) {
-    return FutureBuilder<Image>(
-      future: ThumbnailGenerator().getOriginCover(song.path),
-      builder: (context, snapshot) {
-        return Container(
-          width: 300,
-          height: 300,
+    return LayoutBuilder(builder: (context, constraints) {
+      final size = min(constraints.maxHeight, constraints.maxWidth);
+      return Hero(
+        tag: 'song-cover-${song.id}',
+        child: Container(
+          width: size,
+          height: size,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            image: snapshot.hasData
-                ? DecorationImage(
-                    image: snapshot.data!.image,
-                    fit: BoxFit.cover,
-                  )
-                : null,
+            image: DecorationImage(
+              image: _coverImage!.image,
+              fit: BoxFit.cover,
+            ),
           ),
-          child: snapshot.hasData
-              ? null
-              : const Icon(Icons.music_note, size: 100, color: Colors.white),
-        );
-      },
-    );
+        ),
+      );
+    });
   }
 
   Widget _buildSongInfo(SongModel song) {
@@ -235,7 +283,6 @@ class _SongPlayPageState extends State<SongPlayPage> {
                       default:
                         icon = Icons.playlist_play;
                     }
-
                     return IconButton(
                       icon: Icon(icon),
                       onPressed: _switchPlayBackMode,
@@ -285,7 +332,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
   }
 
   void _toggleFavorite(FavoritesService favoritesService, SongModel song) {
-    song.isFavorite = !song.isFavorite; // 更新本地状态
+    song.isFavorite = !song.isFavorite;
     favoritesService.toggleFavorite(song.id!);
   }
 

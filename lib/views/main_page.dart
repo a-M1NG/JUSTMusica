@@ -128,41 +128,32 @@ class _MainPageState extends State<MainPage> {
         Provider<PlaylistService>.value(value: _playlistService!),
       ],
       child: Scaffold(
-        body: Row(
+        body: Column(
           children: [
-            NavigationBarWidget(
-              selectedIndex: _selectedIndex,
-              onItemTapped: _onNavItemTapped,
-              playlistService: _playlistService!,
-              favoritesService: _favoritesService!,
-              playbackService: _playbackService!,
-              onPlaylistsChanged: _updatePlaylists,
-            ),
             Expanded(
-              child: Stack(
+              child: Row(
                 children: [
-                  Column(
-                    children: [
-                      Expanded(child: _pages[_selectedIndex]),
-                      SizedBox(height: 81),
-                    ],
+                  NavigationBarWidget(
+                    selectedIndex: _selectedIndex,
+                    onItemTapped: _onNavItemTapped,
+                    playlistService: _playlistService!,
+                    favoritesService: _favoritesService!,
+                    playbackService: _playbackService!,
+                    onPlaylistsChanged: _updatePlaylists,
                   ),
-                  Positioned(
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    child: Material(
-                      elevation: 8, // 阴影，让它在视觉上更“浮”在上面
-                      color:
-                          Theme.of(context).canvasColor, // 不透明背景，避免背后透出 hover 色
-                      child: PlaybackControlBar(
-                        playlistService: _playlistService!,
-                        favoritesService: _favoritesService!,
-                        playbackService: _playbackService!,
-                      ),
-                    ),
+                  Expanded(
+                    child: _pages[_selectedIndex],
                   ),
                 ],
+              ),
+            ),
+            Material(
+              elevation: 8,
+              color: Theme.of(context).canvasColor,
+              child: PlaybackControlBar(
+                playlistService: _playlistService!,
+                favoritesService: _favoritesService!,
+                playbackService: _playbackService!,
               ),
             ),
           ],
