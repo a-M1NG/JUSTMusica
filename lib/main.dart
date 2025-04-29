@@ -57,44 +57,41 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider<PlaybackService>(
             create: (_) => PlaybackService()),
-        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider<ThemeService>(
+          create: (_) => ThemeService(),
+          // 确保 ThemeService 在 MaterialApp 之前初始化完成
+          lazy: false,
+        ),
       ],
-      child: Consumer<ThemeService>(
-        builder: (context, themeService, _) {
-          debugPrint(
-              "main: Current theme color: ${Theme.of(context).primaryColor}");
+      child: Builder(
+        builder: (context) {
+          final themeService = Provider.of<ThemeService>(context, listen: true);
+
           return MaterialApp(
             title: "JUST Musica",
-            // 直接根据 themeService.themeColor 构建主题
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              primarySwatch: createMaterialColor(themeService.themeColor),
-              colorScheme: ColorScheme.fromSwatch(
-                primarySwatch: createMaterialColor(themeService.themeColor),
-                // brightness: themeService.brightness,
-              ).copyWith(
-                surface: Colors.grey[100],
-                onPrimary: Colors.white,
-              ),
-              fontFamily: 'HarmonyOS_Sans_SC',
-              visualDensity: VisualDensity.adaptivePlatformDensity,
-              // brightness: themeService.brightness,
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                ),
-              ),
-              popupMenuTheme: PopupMenuThemeData(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
-              ),
-            ),
-            // 移除 darkTheme 与 themeMode，直接使用统一主题
+            theme: themeService.currentThemeData,
             home: const MainPage(),
+            builder: (context, child) {
+              // 确保主题加载完成后再构建UI
+              return FutureBuilder(
+                future: _ensureThemeLoaded(context),
+                builder: (context, snapshot) {
+                  return child ?? const SizedBox();
+                },
+              );
+            },
           );
         },
       ),
     );
+  }
+
+  Future<void> _ensureThemeLoaded(BuildContext context) async {
+    final themeService = Provider.of<ThemeService>(context, listen: false);
+    // 如果当前是默认主题，等待可能正在进行的主题加载
+    if (themeService.currentTheme == themeService.availableThemes.first) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
   }
 }

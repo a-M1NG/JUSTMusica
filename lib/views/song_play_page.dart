@@ -86,11 +86,11 @@ class _SongPlayPageState extends State<SongPlayPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
+    // if (_isLoading) {
+    //   return const Scaffold(
+    //     body: Center(child: CircularProgressIndicator()),
+    //   );
+    // }
 
     final currentSong = _currentSong ?? widget.song;
     return Scaffold(
@@ -170,7 +170,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
             top: 16,
             left: 16,
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, size: 24),
+              icon: const Icon(Icons.arrow_downward, size: 24),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -180,6 +180,9 @@ class _SongPlayPageState extends State<SongPlayPage> {
   }
 
   Widget _buildCover(SongModel song) {
+    if (_isLoading) {
+      return const SizedBox();
+    }
     return LayoutBuilder(builder: (context, constraints) {
       final size = min(constraints.maxHeight, constraints.maxWidth);
       return Hero(
@@ -189,11 +192,16 @@ class _SongPlayPageState extends State<SongPlayPage> {
           height: size,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(16),
-            image: DecorationImage(
-              image: _coverImage!.image,
-              fit: BoxFit.cover,
-            ),
+            image: _coverImage != null
+                ? DecorationImage(
+                    image: _coverImage!.image,
+                    fit: BoxFit.cover,
+                  )
+                : null,
           ),
+          child: _coverImage == null
+              ? const Center(child: CircularProgressIndicator())
+              : null,
         ),
       );
     });
@@ -292,7 +300,11 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 VolumeController(playbackService: widget.playbackService),
                 IconButton(
                   icon: const Icon(Icons.skip_previous, size: 24),
-                  onPressed: widget.playbackService.previous,
+                  onPressed: () {
+                    _isLoading = true;
+                    widget.playbackService.previous();
+                    // _loadAssets();
+                  },
                 ),
                 IconButton(
                   icon: Icon(
@@ -305,7 +317,11 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.skip_next, size: 24),
-                  onPressed: widget.playbackService.next,
+                  onPressed: () {
+                    _isLoading = true;
+                    widget.playbackService.next();
+                    // _loadAssets();
+                  },
                 ),
                 IconButton(
                   icon: Icon(

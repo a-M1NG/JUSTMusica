@@ -2,43 +2,209 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ThemeService extends ChangeNotifier {
-  static const String _themeColorKey = 'theme_color';
+  static const String _themeKey = 'selected_theme';
 
-  // 缓存当前主题色，默认为蓝色
-  Color _themeColor = Colors.blue;
-  Color get themeColor => _themeColor;
-  Brightness get brightness =>
-      _themeColor.computeLuminance() > 0.5 ? Brightness.light : Brightness.dark;
+  // 定义所有可用主题
+  final List<AppTheme> _availableThemes = [
+    AppTheme(
+      name: '深空蓝',
+      themeData: _buildThemeData(Colors.blue), // 使用统一的主题构建方法
+    ),
+    AppTheme(
+      name: '烈焰红',
+      themeData: _buildThemeData(Colors.red),
+    ),
+    AppTheme(
+      name: '森林绿',
+      themeData: _buildThemeData(Colors.green),
+    ),
+    AppTheme(
+      name: '神秘紫',
+      themeData: _buildThemeData(Colors.purple),
+    ),
+    AppTheme(
+      name: '阳光橙',
+      themeData: _buildThemeData(Colors.orange),
+    ),
+    AppTheme(
+      name: '极光青',
+      themeData: _buildThemeData(Colors.cyan),
+    ),
+    AppTheme(
+      name: '炭灰黑',
+      themeData: _buildDarkThemeData(Colors.blueGrey),
+    ),
+  ];
+
+  late AppTheme _currentTheme;
+
   ThemeService() {
-    _loadThemeColor();
+    _currentTheme = _availableThemes.first;
+    _loadTheme();
   }
 
-  Future<void> _loadThemeColor() async {
+  List<AppTheme> get availableThemes => _availableThemes;
+  ThemeData get currentThemeData => _currentTheme.themeData;
+  AppTheme get currentTheme => _currentTheme;
+
+  Future<void> _loadTheme() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final hexColor = prefs.getString(_themeColorKey) ?? '#2196F3';
-      _themeColor = _fromHex(hexColor);
-      notifyListeners();
+      final themeIndex = prefs.getInt(_themeKey) ?? 0;
+      if (themeIndex >= 0 && themeIndex < _availableThemes.length) {
+        _currentTheme = _availableThemes[themeIndex];
+        notifyListeners();
+      }
     } catch (e) {
-      // 发生异常时保留默认值
+      debugPrint('Error loading theme: $e');
     }
   }
 
-  Color _fromHex(String hexString) {
-    final buffer = StringBuffer();
-    if (hexString.length == 6 || hexString.length == 7) buffer.write('ff');
-    buffer.write(hexString.replaceFirst('#', ''));
-    return Color(int.parse(buffer.toString(), radix: 16));
-  }
-
-  Future<void> setThemeColor(String color) async {
-    try {
+  Future<void> setTheme(int index) async {
+    if (index >= 0 && index < _availableThemes.length) {
+      _currentTheme = _availableThemes[index];
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_themeColorKey, color);
-      _themeColor = _fromHex(color);
+      await prefs.setInt(_themeKey, index);
       notifyListeners();
-    } catch (e) {
-      throw Exception('Failed to set theme color: $e');
     }
   }
+
+  Future<void> setThemeByName(String name) async {
+    final index = _availableThemes.indexWhere((theme) => theme.name == name);
+    if (index != -1) {
+      await setTheme(index);
+    }
+  }
+
+  static ThemeData _buildThemeData(Color primaryColor) {
+    final colorScheme = ColorScheme.light().copyWith(
+      primary: primaryColor,
+      secondary: primaryColor.withOpacity(0.75),
+      background: primaryColor.withOpacity(0.1),
+      surface: Colors.white,
+      onPrimary: Colors.white, // 文字颜色在主色上
+      onSecondary: Colors.white,
+      onBackground: Colors.black,
+      onSurface: Colors.black,
+      brightness: Brightness.light,
+    );
+
+    final baseTheme = ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.primary, // 显式设置为 primary
+        foregroundColor: colorScheme.onPrimary, // 标题和图标颜色
+        elevation: 4,
+      ),
+    );
+    return baseTheme.copyWith(
+      textTheme: baseTheme.textTheme.apply(fontFamily: 'HarmonyOS_Sans_SC'),
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+
+      // 按钮主题
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+
+      // 弹出菜单主题
+      popupMenuTheme: PopupMenuThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+
+      // 卡片主题
+      cardTheme: CardTheme(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 2,
+      ),
+
+      // 输入框主题
+      // inputDecorationTheme: InputDecorationTheme(
+      //   border: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(8),
+      //   ),
+      // ),
+
+      brightness: Brightness.light,
+    );
+  }
+
+  // 暗色主题的构建方法（如果需要）
+  static ThemeData _buildDarkThemeData(Color primaryColor) {
+    final colorScheme = ColorScheme.dark().copyWith(
+      primary: primaryColor,
+      secondary: primaryColor.withOpacity(0.75),
+      background: Colors.grey[900],
+      surface: Colors.grey[850],
+      onPrimary: Colors.white,
+      onSecondary: Colors.white,
+      onBackground: Colors.white,
+      onSurface: Colors.white,
+      brightness: Brightness.dark,
+    );
+
+    final baseTheme = ThemeData(
+      colorScheme: colorScheme,
+      useMaterial3: true,
+      appBarTheme: AppBarTheme(
+        backgroundColor: colorScheme.primary, // 显式设置为 primary
+        foregroundColor: colorScheme.onPrimary, // 标题和图标颜色
+        elevation: 4,
+      ),
+    );
+    return baseTheme.copyWith(
+      textTheme: baseTheme.textTheme.apply(
+        fontFamily: 'HarmonyOS_Sans_SC',
+      ),
+      visualDensity: VisualDensity.adaptivePlatformDensity,
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          foregroundColor: colorScheme.onPrimary,
+          iconColor: colorScheme.onPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+      cardTheme: CardTheme(
+        elevation: 4,
+        color: Colors.grey[900],
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+      // inputDecorationTheme: InputDecorationTheme(
+      //   border: OutlineInputBorder(
+      //     borderRadius: BorderRadius.circular(8),
+      //   ),
+      //   hintStyle: TextStyle(
+      //     color: colorScheme.onSurface.withOpacity(0.3),
+      //   ),
+      // ),
+      brightness: Brightness.dark,
+    );
+  }
+}
+
+class AppTheme {
+  final String name;
+  final ThemeData themeData;
+
+  AppTheme({
+    required this.name,
+    required this.themeData,
+  });
 }

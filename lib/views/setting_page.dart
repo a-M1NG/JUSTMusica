@@ -5,26 +5,17 @@ import '../services/theme_service.dart';
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
-  static const List<ColorOption> colorOptions = [
-    ColorOption(name: '深空蓝', hex: '#2196F3', color: Colors.blue),
-    ColorOption(name: '烈焰红', hex: '#F44336', color: Colors.red),
-    ColorOption(name: '森林绿', hex: '#4CAF50', color: Colors.green),
-    ColorOption(name: '神秘紫', hex: '#9C27B0', color: Colors.purple),
-    ColorOption(name: '阳光橙', hex: '#FF9800', color: Colors.orange),
-    ColorOption(name: '极光青', hex: '#00BCD4', color: Colors.cyan),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
+    final currentTheme = themeService.currentTheme;
+
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).primaryColor.withOpacity(0.01),
         title: const Text('设置'),
         elevation: 0,
         centerTitle: true,
       ),
-      backgroundColor: Theme.of(context).primaryColor.withOpacity(0.8),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -32,7 +23,7 @@ class SettingsPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '选择主题色',
+                '选择主题',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -45,15 +36,13 @@ class SettingsPage extends StatelessWidget {
                   return ResponsiveGrid(
                     crossAxisCount:
                         MediaQuery.of(context).size.width > 600 ? 6 : 3,
-                    children: colorOptions.map((option) {
-                      final isSelected =
-                          themeService.themeColor.value == option.color.value;
-
-                      return ColorCard(
-                        option: option,
+                    children: themeService.availableThemes.map((theme) {
+                      final isSelected = theme.name == currentTheme.name;
+                      return ThemeCard(
+                        theme: theme,
                         isSelected: isSelected,
                         onTap: () {
-                          themeService.setThemeColor(option.hex);
+                          themeService.setThemeByName(theme.name);
                         },
                       );
                     }).toList(),
@@ -68,23 +57,23 @@ class SettingsPage extends StatelessWidget {
   }
 }
 
-class ColorCard extends StatefulWidget {
-  final ColorOption option;
+class ThemeCard extends StatefulWidget {
+  final AppTheme theme;
   final bool isSelected;
   final VoidCallback onTap;
 
-  const ColorCard({
+  const ThemeCard({
     super.key,
-    required this.option,
+    required this.theme,
     required this.isSelected,
     required this.onTap,
   });
 
   @override
-  State<ColorCard> createState() => _ColorCardState();
+  State<ThemeCard> createState() => _ThemeCardState();
 }
 
-class _ColorCardState extends State<ColorCard>
+class _ThemeCardState extends State<ThemeCard>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
@@ -111,6 +100,8 @@ class _ColorCardState extends State<ColorCard>
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = widget.theme.themeData.primaryColor;
+
     return ScaleTransition(
       scale: _scaleAnimation,
       child: InkWell(
@@ -139,8 +130,8 @@ class _ColorCardState extends State<ColorCard>
                   borderRadius: BorderRadius.circular(16),
                   gradient: LinearGradient(
                     colors: [
-                      widget.option.color.withOpacity(0.9),
-                      widget.option.color,
+                      primaryColor.withOpacity(0.9),
+                      primaryColor,
                     ],
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
@@ -153,8 +144,8 @@ class _ColorCardState extends State<ColorCard>
                   child: InkWell(
                     onTap: widget.onTap,
                     borderRadius: BorderRadius.circular(16),
-                    splashColor: widget.option.color.withOpacity(0.3),
-                    highlightColor: widget.option.color.withOpacity(0.15),
+                    splashColor: primaryColor.withOpacity(0.3),
+                    highlightColor: primaryColor.withOpacity(0.15),
                   ),
                 ),
               ),
@@ -170,7 +161,7 @@ class _ColorCardState extends State<ColorCard>
                     ),
                     child: Icon(
                       Icons.check_circle,
-                      color: widget.option.color,
+                      color: primaryColor,
                       size: 20,
                     ),
                   ),
@@ -180,7 +171,7 @@ class _ColorCardState extends State<ColorCard>
                 left: 12,
                 right: 12,
                 child: Text(
-                  widget.option.name,
+                  widget.theme.name,
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.9),
                     fontWeight: FontWeight.bold,
@@ -231,16 +222,4 @@ class ResponsiveGrid extends StatelessWidget {
       children: children,
     );
   }
-}
-
-class ColorOption {
-  final String name;
-  final String hex;
-  final Color color;
-
-  const ColorOption({
-    required this.name,
-    required this.hex,
-    required this.color,
-  });
 }

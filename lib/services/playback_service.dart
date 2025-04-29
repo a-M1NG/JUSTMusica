@@ -64,6 +64,7 @@ class PlaybackService extends ChangeNotifier {
       _playbackStateSubject.valueOrNull?.currentSong ??
       SongModel(path: "assets/audio/sample.mp3"); // 获取当前播放的歌曲
   List<SongModel> _currentPlaylist = [];
+  List<SongModel> _oriPlaylist = [];
   List<SongModel> _playNextSongs = [];
   int _currentIndex = -1;
   PlaybackMode _playbackMode = PlaybackMode.sequential;
@@ -182,9 +183,20 @@ class PlaybackService extends ChangeNotifier {
   ///
   /// [songs] 要设置的歌曲列表
   /// 设置新的播放列表，替换当前的播放列表
-  Future<void> setPlaybackList(List<SongModel> songs) async {
+  Future<void> setPlaybackList(List<SongModel> songs, SongModel song) async {
     try {
       _currentPlaylist = List.from(songs);
+      _oriPlaylist = _currentPlaylist.toList();
+      if (playbackMode == PlaybackMode.random) {
+        _currentPlaylist.shuffle();
+        // 把当前播放的歌曲放到列表首
+        final index = _currentPlaylist.indexWhere((s) => s.path == song.path);
+        if (index != -1) {
+          final currentSong = _currentPlaylist.removeAt(index);
+          _currentPlaylist.insert(0, currentSong);
+          _currentIndex = 0;
+        }
+      }
       _logger.i('Set playback list with ${songs.length} songs');
 
       // 如果列表不为空但没有设置当前索引，则设置为第一首
@@ -195,6 +207,24 @@ class PlaybackService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       _logger.e('Failed to set playback list: $e');
+      rethrow;
+    }
+  }
+
+  Future<void> removeFromPlaylist(int songId) async {
+    try {
+      final song = await _dbService.getSongById(songId);
+      if (song == null) {
+        _logger.w('Song with ID $songId not found');
+        return;
+      }
+
+      _currentPlaylist.removeWhere((s) => s.id == song.id);
+      _oriPlaylist.removeWhere((s) => s.id == song.id);
+      _logger.i('Removed song "${song.title}" from playlist');
+      notifyListeners();
+    } catch (e) {
+      _logger.e('Failed to remove song from playlist: $e');
       rethrow;
     }
   }
@@ -257,9 +287,13 @@ class PlaybackService extends ChangeNotifier {
       await _audioPlayer.setVolume(_volume);
       _updatePlaybackState(currentSong: song, isPlaying: true);
       _logger.i('Playing song: ${song.title}');
-      // 预取信息
-      await ThumbnailGenerator().prefetchInfo(song);
-      _logger.i('Prefetched info for song: ${song.title} - ${song.artist}');
+      // // 预取信息
+      // _logger.i('Prefetching info for song');
+      // await ThumbnailGenerator().prefetchInfo(song);
+      // _logger.i('Prefetching info for next song');
+      // await ThumbnailGenerator().prefetchInfo(
+      //     _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
+
       notifyListeners();
     } catch (e) {
       _logger.e('Failed to play song ${song.title}: $e');
@@ -306,15 +340,7 @@ class PlaybackService extends ChangeNotifier {
         return;
       }
 
-      if (_playbackMode == PlaybackMode.random) {
-        final tmp = _currentIndex;
-        // 随机选择一个索引，确保不重复
-        while (tmp == _currentIndex) {
-          _currentIndex = Random().nextInt(_currentPlaylist.length);
-        }
-      } else {
-        _currentIndex = (_currentIndex + 1) % _currentPlaylist.length;
-      }
+      _currentIndex = (_currentIndex + 1) % _currentPlaylist.length;
 
       final nextSong = _currentPlaylist[_currentIndex];
       await playSong(nextSong);
@@ -332,12 +358,8 @@ class PlaybackService extends ChangeNotifier {
         return;
       }
 
-      if (_playbackMode == PlaybackMode.random) {
-        _currentIndex = Random().nextInt(_currentPlaylist.length);
-      } else {
-        _currentIndex = (_currentIndex - 1 + _currentPlaylist.length) %
-            _currentPlaylist.length;
-      }
+      _currentIndex = (_currentIndex - 1 + _currentPlaylist.length) %
+          _currentPlaylist.length;
 
       final previousSong = _currentPlaylist[_currentIndex];
       await playSong(previousSong);
@@ -350,6 +372,19 @@ class PlaybackService extends ChangeNotifier {
 
   Future<void> setPlaybackMode(PlaybackMode mode) async {
     _playbackMode = mode;
+    if (_playbackMode == PlaybackMode.random) {
+      _currentPlaylist.shuffle();
+      // 把当前播放的歌曲放到列表首
+      final index =
+          _currentPlaylist.indexWhere((s) => s.path == currentSong.path);
+      if (index != -1) {
+        final currentSong = _currentPlaylist.removeAt(index);
+        _currentPlaylist.insert(0, currentSong);
+        _currentIndex = 0;
+      }
+    } else {
+      _currentPlaylist = _oriPlaylist.toList();
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('playback_mode', mode.toString());
     // _updatePlaybackState();

@@ -30,10 +30,7 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
       '是否从播放列表中移除此歌曲？',
     );
     if (confirm == true) {
-      final currentList = await songsFuture;
-      await widget.playbackService.setPlaybackList(
-        currentList.where((s) => s.id != song.id).toList(),
-      );
+      await widget.playbackService.removeFromPlaylist(song.id!);
       await loadSongs();
     }
   }
@@ -63,10 +60,9 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
       '是否从播放列表中移除这些歌曲？',
     );
     if (confirm == true) {
-      final currentList = await songsFuture;
-      await widget.playbackService.setPlaybackList(
-        currentList.where((s) => !selectedSongIds.contains(s.id)).toList(),
-      );
+      for (final songId in selectedSongIds) {
+        await widget.playbackService.removeFromPlaylist(songId);
+      }
       await loadSongs();
     }
     return confirm;

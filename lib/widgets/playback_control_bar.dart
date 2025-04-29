@@ -11,6 +11,25 @@ import '../views/song_play_page.dart';
 import '../utils/tools.dart';
 import 'package:just_musica/widgets/volume_controller.dart';
 
+// 添加到文件中的其他地方
+class CustomTrackShape extends RoundedRectSliderTrackShape {
+  @override
+  Rect getPreferredRect({
+    required RenderBox parentBox,
+    Offset offset = Offset.zero,
+    required SliderThemeData sliderTheme,
+    bool isEnabled = false,
+    bool isDiscrete = false,
+  }) {
+    final double trackHeight = sliderTheme.trackHeight ?? 2;
+    final double trackLeft = offset.dx;
+    final double trackTop =
+        offset.dy + (parentBox.size.height - trackHeight) / 2;
+    final double trackWidth = parentBox.size.width;
+    return Rect.fromLTWH(trackLeft, trackTop, trackWidth, trackHeight);
+  }
+}
+
 class PlaybackControlBar extends StatefulWidget {
   const PlaybackControlBar({
     super.key,
@@ -27,9 +46,10 @@ class PlaybackControlBar extends StatefulWidget {
 }
 
 class _PlaybackControlBarState extends State<PlaybackControlBar> {
-  // 用于存储拖动中的滑块位置
   double? _dragValue;
   late ValueNotifier<PlaybackMode> _playbackModeNotifier;
+  bool _isHovering = false;
+  bool _isDragging = false;
 
   @override
   void initState() {
@@ -56,10 +76,6 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                height: 1,
-                color: Theme.of(context).primaryColor.withOpacity(0.3),
-              ),
-              Container(
                 height: 80,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 color: Theme.of(context).primaryColor.withOpacity(0.1),
@@ -84,19 +100,140 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              height: 1,
-              color: Theme.of(context).primaryColor.withOpacity(0.3),
+            MouseRegion(
+              onEnter: (_) => setState(() => _isHovering = true),
+              onExit: (_) => setState(() => _isHovering = false),
+              child: Container(
+                height: 4,
+                // margin: const EdgeInsets.symmetric(horizontal: -14),
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    trackHeight: 2,
+                    thumbShape: RoundSliderThumbShape(
+                      enabledThumbRadius: (_isHovering || _isDragging) ? 6 : 0,
+                    ),
+                    overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+                    trackShape: CustomTrackShape(),
+                  ),
+                  child: Slider(
+                    value: _dragValue ?? state!.position.inSeconds.toDouble(),
+                    max: state!.duration.inSeconds.toDouble(),
+                    min: 0,
+                    onChangeStart: (value) {
+                      setState(() {
+                        _isDragging = true;
+                      });
+                    },
+                    onChanged: (value) {
+                      setState(() {
+                        _dragValue = value;
+                      });
+                    },
+                    onChangeEnd: (value) {
+                      widget.playbackService.seekTo(value.toInt()).then((_) {
+                        setState(() {
+                          _dragValue = null;
+                          _isDragging = false;
+                        });
+                      });
+                    },
+                  ),
+                ),
+              ),
             ),
             Container(
               height: 80,
-              // padding: const EdgeInsets.symmetric(horizontal: 16),
-              color: Theme.of(context).primaryColor.withOpacity(0.05),
+              color: Theme.of(context).primaryColor.withOpacity(0.15),
               child: Row(
                 children: [
+                  const SizedBox(width: 16),
                   _buildSongInfo(context, song),
-                  Expanded(child: _buildProgressBar(context, state!)),
-                  _buildControls(context, state, song),
+                  IconButton(
+                    icon: Icon(
+                      song.isFavorite ? Icons.favorite : Icons.favorite_border,
+                      color: song.isFavorite ? Colors.red : null,
+                    ),
+                    onPressed: () => _toggleFavorite(context, song),
+                  ),
+                  Expanded(
+                    child: Center(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.skip_previous),
+                            onPressed: widget.playbackService.previous,
+                          ),
+                          IconButton(
+                            icon: Icon(
+                              size: 32,
+                              state.isPlaying ? Icons.pause : Icons.play_arrow,
+                            ),
+                            onPressed: state.isPlaying
+                                ? widget.playbackService.pause
+                                : widget.playbackService.resume,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.skip_next),
+                            onPressed: widget.playbackService.next,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ValueListenableBuilder<PlaybackMode>(
+                        valueListenable: _playbackModeNotifier,
+                        builder: (context, mode, child) {
+                          IconData icon;
+                          String toolstipText;
+                          switch (mode) {
+                            case PlaybackMode.random:
+                              icon = Icons.shuffle;
+                              toolstipText = '随机播放';
+                              break;
+                            case PlaybackMode.singleLoop:
+                              icon = Icons.repeat_one;
+                              toolstipText = '单曲循环';
+                              break;
+                            case PlaybackMode.loopAll:
+                              icon = Icons.repeat;
+                              toolstipText = '循环播放';
+                              break;
+                            default:
+                              icon = Icons.playlist_play;
+                              toolstipText = '顺序播放';
+                          }
+                          return IconButton(
+                            icon: Icon(icon),
+                            onPressed: _switchPlayBackMode,
+                            tooltip: toolstipText,
+                          );
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.playlist_add),
+                        onPressed: () =>
+                            _showAddToPlaylistDialog(context, song),
+                        tooltip: '添加到收藏夹',
+                      ),
+                      HorizontalVolumeController(
+                          playbackService: widget.playbackService),
+                      IconButton(
+                          onPressed: () => _onTapped(song, context),
+                          icon: Icon(Icons.arrow_upward)),
+                      SizedBox(width: 8),
+                      Text(
+                        formatDuration(_dragValue != null
+                            ? Duration(seconds: _dragValue!.round())
+                            : state.position),
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      SizedBox(width: 16),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -107,288 +244,180 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
   }
 
   Widget _buildSongInfo(BuildContext context, SongModel song) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        hoverColor: Colors.grey.withOpacity(0.1),
-        splashColor: Theme.of(context).primaryColor.withOpacity(0.2),
-        onTap: () {
-          Navigator.push(
-            context,
-            PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) =>
-                  SongPlayPage(
-                song: song,
-                playbackService: widget.playbackService,
-                favoritesService: widget.favoritesService,
-                playlistService: widget.playlistService,
+    return SizedBox(
+      height: 72,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(8),
+          hoverColor: Colors.grey.withOpacity(0.1),
+          splashColor: Theme.of(context).primaryColor.withOpacity(0.2),
+          onTap: () => _onTapped(song, context),
+          child: Row(
+            children: [
+              FutureBuilder<ImageProvider>(
+                future: ThumbnailGenerator().getThumbnailProvider(song.path),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    return Hero(
+                      tag: 'song-cover-${song.id}',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image(
+                          image: snapshot.data!,
+                          width: 72,
+                          height: 72,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              const Icon(Icons.music_note, size: 80),
+                        ),
+                      ),
+                    );
+                  }
+                  return const Icon(Icons.music_note, size: 80);
+                },
               ),
-              transitionsBuilder:
-                  (context, animation, secondaryAnimation, child) {
-                var begin = const Offset(0.0, 1.0); // 从底部开始
-                var end = Offset.zero;
-                var curve = Curves.easeInOutCubic;
-
-                var tween = Tween(begin: begin, end: end).chain(
-                  CurveTween(curve: curve),
-                );
-
-                return SlideTransition(
-                  position: animation.drive(tween),
-                  child: FadeTransition(
-                    opacity: animation,
-                    child: child,
-                  ),
-                );
-              },
-              transitionDuration: const Duration(milliseconds: 300),
-              reverseTransitionDuration: const Duration(milliseconds: 300),
-            ),
-          );
-        },
-        child: Row(
-          children: [
-            FutureBuilder<ImageProvider>(
-              future: ThumbnailGenerator().getThumbnailProvider(song.path),
-              builder: (context, snapshot) {
-                if (snapshot.hasData) {
-                  return Hero(
-                    tag: 'song-cover-${song.id}',
-                    child: Image(
-                      image: snapshot.data!,
-                      width: 80,
-                      height: 80,
-                      errorBuilder: (_, __, ___) =>
-                          const Icon(Icons.music_note, size: 80),
-                    ),
-                  );
-                }
-                return const Icon(Icons.music_note, size: 80);
-              },
-            ),
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 180,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.max,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    height: 40,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        var tStyle = TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Theme.of(context).colorScheme.secondary,
-                        );
-                        final textSpan = TextSpan(
-                          text: song.title ?? '未知曲名',
-                          style: tStyle,
-                        );
-                        final textPainter = TextPainter(
-                          text: textSpan,
-                          maxLines: 1,
-                          textDirection: TextDirection.ltr,
-                        )..layout(maxWidth: double.infinity);
-
-                        // 只有在文本宽度超过容器宽度时才使用 Marquee
-                        if (textPainter.width > constraints.maxWidth) {
-                          return Marquee(
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 180,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      height: 40,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          var tStyle = TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.w800,
+                            color: Theme.of(context).colorScheme.secondary,
+                          );
+                          final textSpan = TextSpan(
                             text: song.title ?? '未知曲名',
                             style: tStyle,
-                            scrollAxis: Axis.horizontal,
-                            blankSpace: 30,
-                            velocity: 50,
-                            pauseAfterRound: const Duration(seconds: 1),
                           );
-                        } else {
-                          return Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              song.title ?? '未知曲名',
-                              style: tStyle,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ),
-                  SizedBox(
-                    height: 25,
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        var tStyle = TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          color: Theme.of(context).disabledColor,
-                        );
-                        final textSpan = TextSpan(
-                          text: song.artist ?? '未知歌手',
-                          style: tStyle,
-                        );
-                        final textPainter = TextPainter(
-                          text: textSpan,
-                          maxLines: 1,
-                          textDirection: TextDirection.ltr,
-                        )..layout(maxWidth: double.infinity);
+                          final textPainter = TextPainter(
+                            text: textSpan,
+                            maxLines: 1,
+                            textDirection: TextDirection.ltr,
+                          )..layout(maxWidth: double.infinity);
 
-                        // 只有在文本宽度超过容器宽度时才使用 Marquee
-                        if (textPainter.width > constraints.maxWidth) {
-                          return Marquee(
+                          // 只有在文本宽度超过容器宽度时才使用 Marquee
+                          if (textPainter.width > constraints.maxWidth) {
+                            return Marquee(
+                              text: song.title ?? '未知曲名',
+                              style: tStyle,
+                              scrollAxis: Axis.horizontal,
+                              blankSpace: 30,
+                              velocity: 50,
+                              pauseAfterRound: const Duration(seconds: 1),
+                            );
+                          } else {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                song.title ?? '未知曲名',
+                                style: tStyle,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ),
+                    SizedBox(
+                      height: 25,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          var tStyle = TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: Theme.of(context).disabledColor,
+                          );
+                          final textSpan = TextSpan(
                             text: song.artist ?? '未知歌手',
                             style: tStyle,
-                            scrollAxis: Axis.horizontal,
-                            blankSpace: 30,
-                            velocity: 50,
-                            pauseAfterRound: const Duration(seconds: 1),
                           );
-                        } else {
-                          return Align(
-                            alignment: Alignment.centerLeft,
-                            child: Text(
-                              song.artist ?? '未知歌手',
+                          final textPainter = TextPainter(
+                            text: textSpan,
+                            maxLines: 1,
+                            textDirection: TextDirection.ltr,
+                          )..layout(maxWidth: double.infinity);
+
+                          // 只有在文本宽度超过容器宽度时才使用 Marquee
+                          if (textPainter.width > constraints.maxWidth) {
+                            return Marquee(
+                              text: song.artist ?? '未知歌手',
                               style: tStyle,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          );
-                        }
-                      },
+                              scrollAxis: Axis.horizontal,
+                              blankSpace: 30,
+                              velocity: 50,
+                              pauseAfterRound: const Duration(seconds: 1),
+                            );
+                          } else {
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                song.artist ?? '未知歌手',
+                                style: tStyle,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }
+                        },
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildProgressBar(BuildContext context, PlaybackState state) {
-    // 显示当前播放位置和总时长
-    final position = formatDuration(_dragValue != null
-        ? Duration(seconds: _dragValue!.round())
-        : state.position);
-    final duration = formatDuration(state.duration);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Slider(
-          value: _dragValue ?? state.position.inSeconds.toDouble(),
-          max: state.duration.inSeconds.toDouble(),
-          min: 0,
-          onChanged: (value) {
-            // 当用户拖动滑块时，更新UI显示但不立即seek
-            setState(() {
-              _dragValue = value;
-            });
-          },
-          onChangeEnd: (value) {
-            // 先执行seek操作，不要马上重置_dragValue
-            // 等实际播放位置更新后，_dragValue会自然变成null
-            widget.playbackService.seekTo(value.toInt()).then((_) {
-              // 仅当当前拖动值仍然是这个值时才重置
-              // 这样可以防止多次快速拖动时的闪烁
-              if (_dragValue == value) {
-                setState(() {
-                  _dragValue = null;
-                });
-              }
-            });
-          },
-        ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(position, style: const TextStyle(fontSize: 12)),
-              Text(duration, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildControls(
-      BuildContext context, PlaybackState state, SongModel song) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: Icon(
-            song.isFavorite ? Icons.favorite : Icons.favorite_border,
-            color: song.isFavorite ? Colors.red : null,
-          ),
-          onPressed: () => _toggleFavorite(context, song),
-        ),
-        IconButton(
-          icon: const Icon(Icons.skip_previous),
-          onPressed: widget.playbackService.previous,
-        ),
-        IconButton(
-          icon: Icon(
-            state.isPlaying ? Icons.pause : Icons.play_arrow,
-          ),
-          onPressed: state.isPlaying
-              ? widget.playbackService.pause
-              : widget.playbackService.resume,
-        ),
-        IconButton(
-          icon: const Icon(Icons.skip_next),
-          onPressed: widget.playbackService.next,
-        ),
-        ValueListenableBuilder<PlaybackMode>(
-          valueListenable: _playbackModeNotifier,
-          builder: (context, mode, child) {
-            IconData icon;
-            switch (mode) {
-              case PlaybackMode.random:
-                icon = Icons.shuffle;
-                break;
-              case PlaybackMode.singleLoop:
-                icon = Icons.repeat_one;
-                break;
-              case PlaybackMode.loopAll:
-                icon = Icons.repeat;
-                break;
-              default:
-                icon = Icons.playlist_play;
-            }
-
-            return IconButton(
-              icon: Icon(icon),
-              onPressed: _switchPlayBackMode,
-            );
-          },
-        ),
-        VolumeController(playbackService: widget.playbackService),
-        IconButton(
-          icon: const Icon(Icons.playlist_add),
-          onPressed: () => _showAddToPlaylistDialog(context, song),
-        ),
-      ],
-    );
-  }
-
-  // 格式化时间显示
-
   void _toggleFavorite(BuildContext context, SongModel song) {
-    // 立即更新模型状态（乐观更新）
     setState(() {
       song.isFavorite = !song.isFavorite;
     });
-
-    // 调用服务更新后端
     widget.favoritesService.toggleFavorite(song.id!);
-
-    // 通知播放服务更新状态
     widget.playbackService.notifyListeners();
+  }
+
+  void _onTapped(SongModel song, BuildContext context) {
+    Navigator.push(
+      context,
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) => SongPlayPage(
+          song: song,
+          playbackService: widget.playbackService,
+          favoritesService: widget.favoritesService,
+          playlistService: widget.playlistService,
+        ),
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          var begin = const Offset(0.0, 1.0); // 从底部开始
+          var end = Offset.zero;
+          var curve = Curves.easeInOutCubic;
+
+          var tween = Tween(begin: begin, end: end).chain(
+            CurveTween(curve: curve),
+          );
+
+          return SlideTransition(
+            position: animation.drive(tween),
+            child: FadeTransition(
+              opacity: animation,
+              child: child,
+            ),
+          );
+        },
+        transitionDuration: const Duration(milliseconds: 300),
+        reverseTransitionDuration: const Duration(milliseconds: 300),
+      ),
+    );
   }
 
   void _showAddToPlaylistDialog(BuildContext context, SongModel song) async {

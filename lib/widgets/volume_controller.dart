@@ -134,7 +134,7 @@ class _VolumeControllerState extends State<VolumeController> {
         child: CompositedTransformFollower(
           link: _layerLink,
           showWhenUnlinked: false,
-          offset: const Offset(-10.0, -160.0),
+          offset: const Offset(-10.0, -190.0),
           child: Material(
             elevation: 4,
             borderRadius: BorderRadius.circular(8),
@@ -143,7 +143,7 @@ class _VolumeControllerState extends State<VolumeController> {
               onExit: (_) => _onFlyoutExit(), // 使用新方法
               child: Container(
                 width: 60,
-                height: 150,
+                height: 180,
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
@@ -155,16 +155,24 @@ class _VolumeControllerState extends State<VolumeController> {
                     Expanded(
                       child: RotatedBox(
                         quarterTurns: 3,
-                        child: Slider(
-                          value: _volume,
-                          onChanged: _updateVolume,
-                          min: 0.0,
-                          max: 1.0,
-                          activeColor: Theme.of(context).colorScheme.primary,
-                          inactiveColor: Theme.of(context)
-                              .colorScheme
-                              .primary
-                              .withOpacity(0.3),
+                        child: SliderTheme(
+                          data: SliderThemeData(
+                            thumbShape: const RoundSliderThumbShape(
+                                enabledThumbRadius: 0), // 滑块大小设为 0
+                            overlayShape: const RoundSliderOverlayShape(
+                                overlayRadius: 0), // 触摸反馈大小设为 0
+                          ),
+                          child: Slider(
+                            value: _volume,
+                            onChanged: _updateVolume,
+                            min: 0.0,
+                            max: 1.0,
+                            activeColor: Theme.of(context).colorScheme.primary,
+                            inactiveColor: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withOpacity(0.3),
+                          ),
                         ),
                       ),
                     ),
@@ -215,6 +223,112 @@ class _VolumeControllerState extends State<VolumeController> {
           // tooltip: 'Toggle Mute',
         ),
       ),
+    );
+  }
+}
+
+class HorizontalVolumeController extends StatefulWidget {
+  final PlaybackService playbackService;
+
+  const HorizontalVolumeController({Key? key, required this.playbackService})
+      : super(key: key);
+
+  @override
+  _HorizontalVolumeControllerState createState() =>
+      _HorizontalVolumeControllerState();
+}
+
+class _HorizontalVolumeControllerState
+    extends State<HorizontalVolumeController> {
+  double _volume = 1.0;
+  double? _previousVolume;
+  bool _isMuted = false;
+  bool _isHoveringSlider = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _volume = widget.playbackService.volume;
+  }
+
+  void _toggleMute() {
+    setState(() {
+      if (_isMuted) {
+        _volume = _previousVolume ?? 1.0;
+        widget.playbackService.volume = _volume;
+        _isMuted = false;
+        _previousVolume = null;
+      } else {
+        _previousVolume = _volume;
+        _volume = 0.0;
+        widget.playbackService.volume = _volume;
+        _isMuted = true;
+      }
+    });
+  }
+
+  void _updateVolume(double newVolume) {
+    setState(() {
+      _volume = newVolume;
+      _isMuted = newVolume == 0.0;
+      widget.playbackService.volume = newVolume;
+      if (_isMuted && newVolume > 0.0) {
+        _previousVolume = null;
+      }
+    });
+  }
+
+  IconData _getVolumeIcon() {
+    if (_volume == 0.0 || _isMuted) {
+      return Icons.volume_off;
+    } else if (_volume < 0.5) {
+      return Icons.volume_down;
+    } else {
+      return Icons.volume_up;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          icon: Icon(_getVolumeIcon(), color: theme.iconTheme.color),
+          onPressed: _toggleMute,
+        ),
+        MouseRegion(
+          onEnter: (_) => setState(() => _isHoveringSlider = true),
+          onExit: (_) => setState(() => _isHoveringSlider = false),
+          child: ConstrainedBox(
+            constraints: BoxConstraints.tightFor(
+              width: 100,
+              height: 28, // 限制垂直高度
+            ),
+            child: Center(
+              child: SliderTheme(
+                data: SliderThemeData(
+                  thumbShape: _isHoveringSlider
+                      ? const RoundSliderThumbShape(enabledThumbRadius: 6)
+                      : const RoundSliderThumbShape(enabledThumbRadius: 0),
+                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 0),
+                  trackHeight: 4,
+                ),
+                child: Slider(
+                  value: _volume,
+                  onChanged: _updateVolume,
+                  min: 0.0,
+                  max: 1.0,
+                  activeColor: theme.colorScheme.primary,
+                  inactiveColor: theme.colorScheme.primary.withOpacity(0.3),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

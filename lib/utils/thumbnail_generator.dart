@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
@@ -133,11 +134,7 @@ class ThumbnailGenerator {
         return Image.asset('assets/images/default_cover.jpg'); // 默认封面
       }
       // 解码图像
-      final image = img.decodeImage(coverData);
-      if (image == null) {
-        return Image.asset('assets/images/default_cover.jpg'); // 默认封面
-      }
-      final coverImage = Image.memory(Uint8List.fromList(img.encodePng(image)));
+      final coverImage = await compute(_decodeImage, coverData);
       _oriImageCache[songPath] = coverImage;
       // Convert img.Image to Flutter Image widget
       return coverImage;
@@ -145,6 +142,14 @@ class ThumbnailGenerator {
       print('获取封面失败: $e');
       return Image.asset('assets/images/default_cover.jpg'); // 默认封面
     }
+  }
+
+  static Image _decodeImage(Uint8List coverData) {
+    final image = img.decodeImage(coverData);
+    if (image == null) {
+      return Image.asset('assets/images/default_cover.jpg');
+    }
+    return Image.memory(Uint8List.fromList(img.encodePng(image)));
   }
 
   Future<void> prefetchInfo(SongModel song) async {
@@ -166,17 +171,10 @@ class ThumbnailGenerator {
           // 设置默认封面
           coverImage = Image.asset('assets/images/default_cover.jpg');
           _oriImageCache[song.path] = coverImage;
+        } else {
+          coverImage = await compute(_decodeImage, coverData);
+          _oriImageCache[song.path] = coverImage!;
         }
-
-        final decodedImage = img.decodeImage(coverData!);
-        if (decodedImage == null) {
-          debugPrint('封面图片解码失败: ${song.path}');
-          return;
-        }
-
-        coverImage =
-            Image.memory(Uint8List.fromList(img.encodePng(decodedImage)));
-        _oriImageCache[song.path] = coverImage;
       } else {
         coverImage = cachedImage;
       }
@@ -243,10 +241,8 @@ class ThumbnailGenerator {
         image,
         width: _thumbnailSize,
         height: _thumbnailSize,
-        interpolation: img.Interpolation.linear,
+        interpolation: img.Interpolation.nearest,
       );
-
-      // 转换为 jpg，不支持 webp 格式
 
       final jpgData = img.encodeJpg(thumbnail);
 

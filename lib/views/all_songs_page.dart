@@ -102,10 +102,12 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
         progressStream: progressController.stream,
       ),
     );
-
     for (var i = 0; i < songList.length; i++) {
       final song = songList[i];
       await widget.databaseService.insertSong(song);
+    }
+    for (var i = 0; i < songList.length; i++) {
+      final song = songList[i];
       await ThumbnailGenerator().generateThumbnail(song.path);
 
       currentProgress = i + 1;

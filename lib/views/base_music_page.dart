@@ -50,7 +50,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
 
   // 播放歌曲
   void playSong(SongModel song) {
-    widget.playbackService.setPlaybackList(loadedSongs);
+    widget.playbackService.setPlaybackList(loadedSongs, song);
     widget.playbackService.playSong(song);
   }
 
@@ -255,7 +255,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       extendBodyBehindAppBar: !hasHeader,
       appBar: AppBar(
         title: Text(getPageTitle()),
-        backgroundColor: Theme.of(context).primaryColor.withAlpha(220),
+        backgroundColor:
+            Theme.of(context).appBarTheme.backgroundColor!.withAlpha(220),
         elevation: 0,
         actions: isMultiSelectMode
             ? [

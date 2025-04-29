@@ -53,7 +53,7 @@ class _SongListItemState extends State<SongListItem> {
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0.5 && !_shouldLoadRealContent) {
           _isVisible = true;
-          _timer = Timer(const Duration(milliseconds: 150), () {
+          _timer = Timer(const Duration(milliseconds: 50), () {
             if (mounted && _isVisible) {
               setState(() {
                 _shouldLoadRealContent = true;
@@ -62,8 +62,8 @@ class _SongListItemState extends State<SongListItem> {
           });
         } else if (visibilityInfo.visibleFraction == 0) {
           _isVisible = false;
-          // _timer?.cancel();
-          // _timer = null;
+          _timer?.cancel();
+          _timer = null;
         }
       },
       child: _shouldLoadRealContent
@@ -171,9 +171,11 @@ class _SongListItemState extends State<SongListItem> {
   }
 
   Widget _buildSkeleton(BuildContext context) {
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: isDarkMode ? Colors.grey.shade800 : Colors.grey.shade300,
+      highlightColor: isDarkMode ? Colors.grey.shade700 : Colors.grey.shade100,
       period: const Duration(milliseconds: 1000),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

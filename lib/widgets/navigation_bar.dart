@@ -112,7 +112,10 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
                 onPressed: _createNewPlaylist,
               ),
             ),
-            const Icon(Icons.expand_more),
+            Icon(
+              _playlistsExpanded ? Icons.expand_less : Icons.expand_more,
+              size: 20,
+            ),
           ],
         ),
         children: [
@@ -211,7 +214,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       CreateMessage('收藏夹为空，无法播放', context);
       return;
     }
-    widget.playbackService.setPlaybackList(playlistSongs);
+    widget.playbackService.setPlaybackList(playlistSongs, playlistSongs.first);
     widget.playbackService.playSong(playlistSongs.first);
   }
 
