@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math';
 import 'dart:io'; // 用于 Platform.isWindows 检查
 import 'package:flutter/material.dart';
@@ -46,9 +47,18 @@ class PlaybackService extends ChangeNotifier {
     setVolume(value);
   }
 
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+  }
+
+  int get position =>
+      _playbackStateSubject.valueOrNull?.position.inSeconds ?? 0;
+
   // 音量流
   final _volumeSubject = BehaviorSubject<double>.seeded(1.0);
   Stream<double> get volumeStream => _volumeSubject.stream;
+  late SharedPreferences prefs;
 
   // PlaybackMode 的 getter 和 setter
   PlaybackMode get playbackMode => _playbackMode;
@@ -77,49 +87,48 @@ class PlaybackService extends ChangeNotifier {
   get currentSongStream =>
       _playbackStateSubject.stream.map((state) => state.currentSong).distinct();
 
-  void _init() {
+  void _init() async {
     // 初始化音量
-    final prefs = SharedPreferences.getInstance();
-    prefs.then((prefs) {
-      _volume = prefs.getDouble('volume') ?? 1.0; // 默认音量为 1.0
-      _audioPlayer.setVolume(_volume);
-      _volumeSubject.add(_volume); // 初始音量值
-      //设置播放模式
-      final modeString =
-          prefs.getString('playback_mode') ?? 'PlaybackMode.sequential';
-      switch (modeString) {
-        case 'PlaybackMode.random':
-          _playbackMode = PlaybackMode.random;
-          break;
-        case 'PlaybackMode.singleLoop':
-          _playbackMode = PlaybackMode.singleLoop;
-          break;
-        case 'PlaybackMode.sequential':
-          _playbackMode = PlaybackMode.sequential;
-          break;
-        case 'PlaybackMode.loopAll':
-          _playbackMode = PlaybackMode.loopAll;
-          break;
-        default:
-          _playbackMode = PlaybackMode.sequential;
-      }
-      // 设置最后播放的歌曲
-      final lastPlayedSongId = prefs.getInt('last_played_song_id');
-      if (lastPlayedSongId != null) {
-        _dbService.getSongById(lastPlayedSongId).then((song) async {
-          if (song != null) {
-            await playSong(song);
-            await pause();
-          }
-        }).catchError((error) {
-          _logger.e('Failed to load last played song: $error');
-        });
-      }
-    }).catchError((error) {
-      _logger.e('Failed to load volume from SharedPreferences: $error');
-    });
-    // _audioPlayer.setVolume(_volume);
-    // _volumeSubject.add(_volume); // 初始音量值
+    prefs = await SharedPreferences.getInstance();
+    _volume = prefs.getDouble('volume') ?? 1.0; // 默认音量为 1.0
+    _audioPlayer.setVolume(_volume);
+    _volumeSubject.add(_volume); // 初始音量值
+    //设置播放模式
+    final modeString =
+        prefs.getString('playback_mode') ?? 'PlaybackMode.sequential';
+    switch (modeString) {
+      case 'PlaybackMode.random':
+        _playbackMode = PlaybackMode.random;
+        break;
+      case 'PlaybackMode.singleLoop':
+        _playbackMode = PlaybackMode.singleLoop;
+        break;
+      case 'PlaybackMode.sequential':
+        _playbackMode = PlaybackMode.sequential;
+        break;
+      case 'PlaybackMode.loopAll':
+        _playbackMode = PlaybackMode.loopAll;
+        break;
+      default:
+        _playbackMode = PlaybackMode.sequential;
+    }
+    // 设置最后播放的歌曲
+    final lastPlayedSongId = prefs.getInt('last_played_song_id');
+    if (lastPlayedSongId != null) {
+      _dbService.getSongById(lastPlayedSongId).then((song) async {
+        final jsonStr = prefs.getString('playback_list');
+        if (jsonStr != null) {
+          final List<dynamic> jsonList = jsonDecode(jsonStr);
+          _currentPlaylist = jsonList
+              .map((json) => SongModel.fromMap(json as Map<String, dynamic>))
+              .toList();
+          setPlaybackList(_currentPlaylist, song!);
+        }
+        await playSong(song!, isStart: true);
+      }).catchError((error) {
+        _logger.e('Failed to load last played song: $error');
+      });
+    }
 
     // 监听播放位置
     _audioPlayer.onPositionChanged.listen((position) {
@@ -165,13 +174,13 @@ class PlaybackService extends ChangeNotifier {
   /// [value] 音量值，范围 0.0（静音）到 1.0（最大音量）
   Future<void> setVolume(double value) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setDouble('volume', value); // 保存音量值到本地
+      // await prefs.setDouble('volume', value); // 保存音量值到本地
       // 确保音量值在 0.0 到 1.0 之间
       _volume = value.clamp(0.0, 1.0);
       await _audioPlayer.setVolume(_volume);
       _volumeSubject.add(_volume); // 通知音量变化
       _logger.i('Volume set to $_volume');
+      _updatePlaybackState();
       notifyListeners();
     } catch (e) {
       _logger.e('Failed to set volume to $value: $e');
@@ -186,6 +195,10 @@ class PlaybackService extends ChangeNotifier {
   Future<void> setPlaybackList(List<SongModel> songs, SongModel song) async {
     try {
       _currentPlaylist = List.from(songs);
+      final playbackList =
+          _currentPlaylist.map((song) => song.toMap()).toList();
+      final jsonStr = jsonEncode(playbackList);
+      prefs.setString('playback_list', jsonStr);
       _oriPlaylist = _currentPlaylist.toList();
       if (playbackMode == PlaybackMode.random) {
         _currentPlaylist.shuffle();
@@ -259,15 +272,14 @@ class PlaybackService extends ChangeNotifier {
     return _currentIndex;
   }
 
-  Future<void> playSong(SongModel song, {bool fromPlayNext = false}) async {
+  Future<void> playSong(SongModel song,
+      {bool fromPlayNext = false, bool isStart = false}) async {
     try {
       // Windows 平台临时检查（可选）
       if (Platform.isWindows) {
         setWindowTitle("${song.title} - ${song.artist}");
         _logger.w('Playing on Windows with audioplayers: ${song.title}');
       }
-      final prefs = await SharedPreferences.getInstance();
-      // 记录最后播放的歌曲id
       await prefs.setInt('last_played_song_id', song.id!);
       if (_currentPlaylist.isEmpty) {
         _currentPlaylist = await _dbService.getAllSongs();
@@ -284,17 +296,26 @@ class PlaybackService extends ChangeNotifier {
       // 使用 audioplayers 播放本地文件
       await _audioPlayer.play(DeviceFileSource(song.path));
       // 应用当前音量
-      await _audioPlayer.setVolume(_volume);
-      _updatePlaybackState(currentSong: song, isPlaying: true);
-      _logger.i('Playing song: ${song.title}');
-      // // 预取信息
-      // _logger.i('Prefetching info for song');
-      // await ThumbnailGenerator().prefetchInfo(song);
-      // _logger.i('Prefetching info for next song');
-      // await ThumbnailGenerator().prefetchInfo(
-      //     _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
-
-      notifyListeners();
+      if (isStart) {
+        await _audioPlayer.pause();
+        _logger.i('Prefetching info for song');
+        await ThumbnailGenerator().prefetchInfo(song);
+        _updatePlaybackState(
+          currentSong: song,
+          isPlaying: false,
+        );
+      } else {
+        await _audioPlayer.setVolume(_volume);
+        _updatePlaybackState(currentSong: song, isPlaying: true);
+        _logger.i('Playing song: ${song.title}');
+        // // 预取信息
+        _logger.i('Prefetching info for song');
+        await ThumbnailGenerator().prefetchInfo(song);
+        _logger.i('Prefetching info for next song');
+        await ThumbnailGenerator().prefetchInfo(
+            _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
+        notifyListeners();
+      }
     } catch (e) {
       _logger.e('Failed to play song ${song.title}: $e');
       rethrow;
@@ -339,7 +360,11 @@ class PlaybackService extends ChangeNotifier {
         _logger.w('Playlist is empty');
         return;
       }
-
+      if (playbackMode == PlaybackMode.random) {
+        if (_currentIndex == _currentPlaylist.length - 1) {
+          _currentPlaylist.shuffle();
+        }
+      }
       _currentIndex = (_currentIndex + 1) % _currentPlaylist.length;
 
       final nextSong = _currentPlaylist[_currentIndex];
@@ -357,7 +382,11 @@ class PlaybackService extends ChangeNotifier {
         _logger.w('Playlist is empty');
         return;
       }
-
+      if (playbackMode == PlaybackMode.random) {
+        if (_currentIndex == 0) {
+          _currentPlaylist.shuffle();
+        }
+      }
       _currentIndex = (_currentIndex - 1 + _currentPlaylist.length) %
           _currentPlaylist.length;
 
@@ -389,6 +418,7 @@ class PlaybackService extends ChangeNotifier {
     await prefs.setString('playback_mode', mode.toString());
     // _updatePlaybackState();
     _logger.i('Playback mode set to $mode');
+    _updatePlaybackState();
     notifyListeners();
   }
 
@@ -425,13 +455,17 @@ class PlaybackService extends ChangeNotifier {
     } else if (_playbackMode == PlaybackMode.random) {
       await next();
     } else {
-      await _audioPlayer.stop();
-      _updatePlaybackState(isPlaying: false);
+      await playSong(_currentPlaylist[_currentIndex]);
+      await pause();
+      // _updatePlaybackState(isPlaying: false);
       _logger.i('Playback stopped after song completion');
     }
   }
 
+  @override
   void dispose() {
+    prefs.setDouble('volume', _volume);
+    prefs.setString('playback_mode', _playbackMode.toString());
     _audioPlayer.dispose();
     _playbackStateSubject.close();
     _volumeSubject.close(); // 关闭音量流
