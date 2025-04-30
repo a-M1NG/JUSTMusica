@@ -139,7 +139,6 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
   }
 
   Widget? getHeader() => null;
-  Widget? getFooter() => null;
   void onAddToFavoritesSelected() {
     if (selectedSongIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -414,7 +413,6 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                 },
               ),
             ),
-            // if (hasHeader) getFooter()!, // 根据当前逻辑，只有 hasHeader 时显示 footer
           ],
         ),
       ),

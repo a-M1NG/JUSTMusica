@@ -112,15 +112,6 @@ class _PlaylistDetailPageState
   @override
   Widget getHeader() => _buildPlaylistHeader();
 
-  @override
-  Widget getFooter() {
-    return PlaybackControlBar(
-      playbackService: widget.playbackService,
-      favoritesService: widget.favoritesService,
-      playlistService: widget.playlistService,
-    );
-  }
-
   Widget _buildPlaylistHeader() {
     return Padding(
       padding: const EdgeInsets.all(16.0),
