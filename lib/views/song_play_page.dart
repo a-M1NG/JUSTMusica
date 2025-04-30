@@ -19,6 +19,7 @@ class SongPlayPage extends StatefulWidget {
   final FavoritesService favoritesService;
   final PlaylistService playlistService;
   final ValueNotifier<PlaybackMode> playbackModeNotifier;
+  final Function() onPlaylistsChanged;
   SongPlayPage({
     super.key,
     required this.song,
@@ -26,6 +27,7 @@ class SongPlayPage extends StatefulWidget {
     required this.favoritesService,
     required this.playlistService,
     required this.playbackModeNotifier,
+    required this.onPlaylistsChanged,
   });
 
   @override
@@ -389,6 +391,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                       await playlistService.createPlaylist(name);
                   await playlistService.addSongToPlaylist(
                       newPlaylist.id!, currentSong.id!);
+                  widget.onPlaylistsChanged(); // 通知前台更新
+                  Navigator.pop(context);
                 }
               },
               child: const Text('新建收藏'),

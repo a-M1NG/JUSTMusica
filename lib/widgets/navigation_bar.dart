@@ -232,8 +232,8 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     final confirm = await _showDeleteDialog(context);
     if (confirm == true) {
       await widget.playlistService.deletePlaylist(playlist.id!);
-      setState(() {});
       widget.onPlaylistsChanged();
+      setState(() {});
     }
   }
 

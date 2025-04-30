@@ -156,6 +156,7 @@ class MainPageState extends State<MainPage> {
                 playlistService: _playlistService!,
                 favoritesService: _favoritesService!,
                 playbackService: playbackService,
+                onPlaylistsChanged: _updatePlaylists,
               ),
             ),
           ],

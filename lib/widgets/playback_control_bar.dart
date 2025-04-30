@@ -37,10 +37,12 @@ class PlaybackControlBar extends StatefulWidget {
     required this.playlistService,
     required this.favoritesService,
     required this.playbackService,
+    required this.onPlaylistsChanged,
   });
   final PlaylistService playlistService;
   final FavoritesService favoritesService;
   final PlaybackService playbackService;
+  final Function() onPlaylistsChanged;
 
   @override
   State<PlaybackControlBar> createState() => _PlaybackControlBarState();
@@ -357,6 +359,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
           favoritesService: widget.favoritesService,
           playlistService: widget.playlistService,
           playbackModeNotifier: playbackModeNotifier,
+          onPlaylistsChanged: widget.onPlaylistsChanged,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var begin = const Offset(0.0, 1.0); // 从底部开始
