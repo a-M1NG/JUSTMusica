@@ -22,6 +22,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   final ItemScrollController itemScrollController = ItemScrollController();
   int? _currentIndex;
   List<LrcLine>? _lines;
+  static const int _paddingLines = 5; // 上下各留两行
 
   @override
   void initState() {
@@ -41,6 +42,13 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     widget.lyricsFuture.then((lyrics) {
       setState(() {
         _lines = _parseLyrics(lyrics);
+        if (_lines != null && _lines!.isNotEmpty) {
+          // 在头尾插入空白行
+          for (int i = 0; i < _paddingLines; i++) {
+            _lines!.insert(0, LrcLine(time: -1, text: ""));
+            _lines!.add(LrcLine(time: 999999, text: ""));
+          }
+        }
       });
     });
   }
@@ -107,22 +115,22 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                             ? [
                                 // 添加四个方向的黑色阴影形成描边
                                 Shadow(
-                                  color: Colors.blueGrey,
+                                  color: Colors.white,
                                   offset: const Offset(1.0, 0.0),
                                   blurRadius: 1.0,
                                 ),
                                 Shadow(
-                                  color: Colors.blueGrey,
+                                  color: Colors.white,
                                   offset: const Offset(-1.0, 0.0),
                                   blurRadius: 1.0,
                                 ),
                                 Shadow(
-                                  color: Colors.blueGrey,
+                                  color: Colors.white,
                                   offset: const Offset(0.0, 1.0),
                                   blurRadius: 1.0,
                                 ),
                                 Shadow(
-                                  color: Colors.blueGrey,
+                                  color: Colors.white,
                                   offset: const Offset(0.0, -1.0),
                                   blurRadius: 1.0,
                                 ),
@@ -162,10 +170,11 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
     for (var line in lines) {
       final match = regex.firstMatch(line);
       if (match != null) {
+        final text = match.group(4)!.trim();
+        if (text == "") continue; // 跳过空行
         final minutes = int.parse(match.group(1)!);
         final seconds = int.parse(match.group(2)!);
         final centiseconds = int.parse(match.group(3)!);
-        final text = match.group(4)!.trim();
         final time = (minutes * 60 + seconds) * 1000 + centiseconds * 10; // ms
         result.add(LrcLine(time: time ~/ 1000, text: text)); // time in seconds
       }
@@ -175,13 +184,16 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   int _findCurrentIndex(List<LrcLine> lines, int currentTime) {
     if (lines.isEmpty) return -1;
-    if (currentTime < lines[0].time) return 0;
-    for (int i = 0; i < lines.length - 1; i++) {
+    // 跳过前面的空白行
+    int start = _paddingLines;
+    int end = lines.length - _paddingLines;
+    if (currentTime < lines[start].time) return start;
+    for (int i = start; i < end - 1; i++) {
       if (lines[i].time <= currentTime && currentTime < lines[i + 1].time) {
         return i;
       }
     }
-    return lines.length - 1;
+    return end - 1;
   }
 }
 
