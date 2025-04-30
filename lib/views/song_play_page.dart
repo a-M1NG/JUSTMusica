@@ -227,21 +227,16 @@ class _SongPlayPageState extends State<SongPlayPage> {
           children: [
             const Icon(Icons.person, size: 20),
             const SizedBox(width: 4),
-            Text(
-              song.artist ?? '未知歌手',
+            OverflowText(
+              text: song.artist ?? '未知歌手',
               style: const TextStyle(fontSize: 18),
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
+            const SizedBox(width: 16),
             const Icon(Icons.album, size: 20),
             const SizedBox(width: 4),
-            Text(
-              song.album ?? '未知专辑',
-              style: const TextStyle(
-                  fontSize: 17, color: Color.fromARGB(255, 45, 58, 173)),
+            OverflowText(
+              text: song.album ?? '未知专辑',
+              style: const TextStyle(fontSize: 18),
             ),
           ],
         ),
@@ -291,6 +286,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
+              spacing: 8,
               children: [
                 ValueListenableBuilder<PlaybackMode>(
                   valueListenable: widget.playbackModeNotifier,
@@ -439,6 +435,56 @@ class _SongPlayPageState extends State<SongPlayPage> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class OverflowText extends StatelessWidget {
+  final String text;
+  final TextStyle? style;
+  final int maxLines;
+  final TextOverflow overflow;
+
+  const OverflowText({
+    required this.text,
+    this.style,
+    this.maxLines = 1,
+    this.overflow = TextOverflow.ellipsis,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // 创建 TextPainter 来测量文本宽度
+        final span = TextSpan(text: text, style: style);
+        final tp = TextPainter(
+          text: span,
+          textDirection: TextDirection.ltr,
+        );
+        tp.layout(); // 不设置 maxWidth，获取文本自然宽度
+
+        final naturalWidth = tp.width;
+        // 如果文本自然宽度超过可用宽度，则认为会溢出
+        if (naturalWidth > constraints.maxWidth) {
+          return Tooltip(
+            message: text, // tooltip 显示完整文本
+            child: Text(
+              text,
+              style: style,
+              overflow: overflow,
+              maxLines: maxLines,
+            ),
+          );
+        } else {
+          return Text(
+            text,
+            style: style,
+            maxLines: maxLines,
+          );
+        }
+      },
     );
   }
 }
