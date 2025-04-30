@@ -269,17 +269,22 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Text(
                     '${position.inMinutes}:${(position.inSeconds % 60).toString().padLeft(2, '0')}',
                     style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.end,
                   ),
                 ),
                 Expanded(
-                  child: PlaybackProgressBar(
-                      playbackService: widget.playbackService),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: PlaybackProgressBar(
+                        playbackService: widget.playbackService),
+                  ),
                 ),
                 SizedBox(
                   width: 50,
                   child: Text(
                     '${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')}',
                     style: const TextStyle(fontSize: 16),
+                    textAlign: TextAlign.start,
                   ),
                 ),
               ],
