@@ -37,9 +37,13 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   @override
   Widget build(BuildContext context) {
     // debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
+    var theme = Theme.of(context);
+    final bool isDarkMode = theme.brightness == Brightness.dark;
     return Container(
       width: 250,
-      color: Theme.of(context).primaryColor.withOpacity(0.5),
+      color: isDarkMode
+          ? Colors.grey[800] // 深色模式下使用固定浅灰色
+          : theme.primaryColor.withAlpha(150),
       child: Column(
         children: [
           Padding(
