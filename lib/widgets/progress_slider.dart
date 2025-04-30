@@ -26,9 +26,7 @@ class CustomTrackShape extends RoundedRectSliderTrackShape {
 /// Listens to [playbackService.playbackStateStream] to render and control
 /// the current playback position. On drag end it seeks to the chosen position.
 class PlaybackProgressBar extends StatefulWidget {
-  /// The service that exposes playback state and controls.
   final PlaybackService playbackService;
-
   const PlaybackProgressBar({
     Key? key,
     required this.playbackService,
@@ -50,48 +48,46 @@ class _PlaybackProgressBarState extends State<PlaybackProgressBar> {
       builder: (context, snapshot) {
         final state = snapshot.data;
         if (state == null) {
-          // While no state is available, render an empty placeholder.
           return const SizedBox(height: 4);
         }
 
-        final positionSeconds =
-            _dragValue ?? state.position.inSeconds.toDouble();
-        final durationSeconds = state.duration.inSeconds.toDouble();
+        final pos = _dragValue ?? state.position.inSeconds.toDouble();
+        final dur = state.duration.inSeconds.toDouble();
 
-        return MouseRegion(
-          onEnter: (_) => setState(() => _isHovering = true),
-          onExit: (_) => setState(() => _isHovering = false),
-          child: SliderTheme(
-            data: SliderTheme.of(context).copyWith(
-              trackHeight: 2,
-              thumbShape: RoundSliderThumbShape(
-                enabledThumbRadius: (_isHovering || _isDragging) ? 6 : 0,
+        // 关键：用 SizedBox（或 Container）强制高度为 4
+        return SizedBox(
+          height: 4,
+          child: MouseRegion(
+            onEnter: (_) => setState(() => _isHovering = true),
+            onExit: (_) => setState(() => _isHovering = false),
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 2,
+                thumbShape: RoundSliderThumbShape(
+                  enabledThumbRadius: (_isHovering || _isDragging) ? 6 : 0,
+                ),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                trackShape: CustomTrackShape(),
               ),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              trackShape: CustomTrackShape(),
-            ),
-            child: Slider(
-              min: 0,
-              max: durationSeconds,
-              value: positionSeconds.clamp(0.0, durationSeconds),
-              onChangeStart: (value) {
-                setState(() {
-                  _isDragging = true;
-                });
-              },
-              onChanged: (value) {
-                setState(() {
-                  _dragValue = value;
-                });
-              },
-              onChangeEnd: (value) {
-                widget.playbackService.seekTo(value.toInt()).then((_) {
-                  setState(() {
-                    _dragValue = null;
-                    _isDragging = false;
+              child: Slider(
+                min: 0,
+                max: dur,
+                value: pos.clamp(0.0, dur),
+                onChangeStart: (value) {
+                  setState(() => _isDragging = true);
+                },
+                onChanged: (value) {
+                  setState(() => _dragValue = value);
+                },
+                onChangeEnd: (value) {
+                  widget.playbackService.seekTo(value.toInt()).then((_) {
+                    setState(() {
+                      _dragValue = null;
+                      _isDragging = false;
+                    });
                   });
-                });
-              },
+                },
+              ),
             ),
           ),
         );
