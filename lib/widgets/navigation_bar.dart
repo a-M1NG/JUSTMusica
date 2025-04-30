@@ -31,7 +31,7 @@ class NavigationBarWidget extends StatefulWidget {
 }
 
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
-  bool _playlistsExpanded = false;
+  bool _playlistsExpanded = true;
   bool _isHovering = false;
   int lastIndex = 4;
   @override
@@ -42,7 +42,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     return Container(
       width: 250,
       color: isDarkMode
-          ? Colors.grey[800] // 深色模式下使用固定浅灰色
+          ? Colors.grey[900]!.withAlpha(150)
           : theme.primaryColor.withAlpha(150),
       child: Column(
         children: [
@@ -72,11 +72,16 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   }
 
   Widget _buildNavItem(int index, String title, IconData iconData) {
+    bool isDarkMode = Theme.of(context).brightness == Brightness.dark;
     return ListTile(
       leading: Icon(iconData, size: 24),
       title: Text(title),
       selected: widget.selectedIndex == index,
       onTap: () => widget.onItemTapped(index),
+      hoverColor:
+          isDarkMode ? Colors.white.withAlpha(77) : Colors.grey.withAlpha(51),
+      selectedTileColor:
+          isDarkMode ? Colors.white.withAlpha(77) : Colors.grey.withAlpha(51),
     );
   }
 
