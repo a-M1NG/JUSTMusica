@@ -227,16 +227,20 @@ class _SongPlayPageState extends State<SongPlayPage> {
           children: [
             const Icon(Icons.person, size: 20),
             const SizedBox(width: 4),
-            OverflowText(
-              text: song.artist ?? '未知歌手',
-              style: const TextStyle(fontSize: 18),
+            Flexible(
+              child: OverflowText(
+                text: song.artist ?? '未知歌手',
+                style: const TextStyle(fontSize: 18),
+              ),
             ),
             const SizedBox(width: 16),
             const Icon(Icons.album, size: 20),
             const SizedBox(width: 4),
-            OverflowText(
-              text: song.album ?? '未知专辑',
-              style: const TextStyle(fontSize: 18),
+            Flexible(
+              child: OverflowText(
+                text: song.album ?? '未知专辑',
+                style: const TextStyle(fontSize: 18),
+              ),
             ),
           ],
         ),
