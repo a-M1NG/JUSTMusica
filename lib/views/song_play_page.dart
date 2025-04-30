@@ -389,10 +389,20 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 if (name != null) {
                   final newPlaylist =
                       await playlistService.createPlaylist(name);
-                  await playlistService.addSongToPlaylist(
+                  var res = await playlistService.addSongToPlaylist(
                       newPlaylist.id!, currentSong.id!);
                   widget.onPlaylistsChanged(); // 通知前台更新
                   Navigator.pop(context);
+                  if (res != null && !res) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('存在重复添加歌曲！')),
+                    );
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text('已添加 ${currentSong.title} 到收藏夹: $name')),
+                  );
                 }
               },
               child: const Text('新建收藏'),
@@ -409,10 +419,21 @@ class _SongPlayPageState extends State<SongPlayPage> {
               return ListTile(
                 leading: const Icon(Icons.playlist_play),
                 title: Text(playlist.name),
-                onTap: () {
-                  playlistService.addSongToPlaylist(
+                onTap: () async {
+                  var res = await playlistService.addSongToPlaylist(
                       playlist.id!, currentSong.id!);
                   Navigator.pop(context);
+                  if (res != null && !res) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('存在重复添加歌曲！')),
+                    );
+                    return;
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                        content: Text(
+                            '已添加 ${currentSong.title} 到收藏夹: ${playlist.name}')),
+                  );
                 },
               );
             },

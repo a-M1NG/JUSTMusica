@@ -399,12 +399,18 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                 if (name != null && name.trim().isNotEmpty) {
                   final newPlaylist =
                       await widget.playlistService.createPlaylist(name);
-                  await widget.playlistService
+                  var res = await widget.playlistService
                       .addSongToPlaylist(newPlaylist.id!, song.id!);
+                  Navigator.pop(context);
+                  if (res != null && !res) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('存在重复添加歌曲！')),
+                    );
+                    return;
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('已添加 ${song.title} 到新收藏夹: $name')),
                   );
-                  Navigator.pop(context);
                 }
               },
               child: const Text('新建收藏'),
@@ -421,10 +427,16 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
               return ListTile(
                 leading: const Icon(Icons.playlist_play),
                 title: Text(playlist.name),
-                onTap: () {
-                  widget.playlistService
+                onTap: () async {
+                  var res = await widget.playlistService
                       .addSongToPlaylist(playlist.id!, song.id!);
                   Navigator.pop(context);
+                  if (res != null && !res) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('存在重复添加歌曲！')),
+                    );
+                    return;
+                  }
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
                         content:
