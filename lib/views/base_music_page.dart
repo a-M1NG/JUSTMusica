@@ -94,6 +94,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
 
   bool _isMultiSelectMode = false;
   bool get isMultiSelectMode => _isMultiSelectMode;
+  bool _isSelectAll = false;
   set isMultiSelectMode(bool value) {
     _isMultiSelectMode = value;
     if (!value) {
@@ -265,9 +266,13 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                   label: const Text('全选'),
                   onPressed: () {
                     setState(() {
-                      selectedSongIds.clear();
-                      for (var song in loadedSongs) {
-                        selectedSongIds.add(song.id!);
+                      _isSelectAll = !_isSelectAll;
+                      if (_isSelectAll) {
+                        for (var song in loadedSongs) {
+                          selectedSongIds.add(song.id!);
+                        }
+                      } else {
+                        selectedSongIds.clear();
                       }
                     });
                   },
