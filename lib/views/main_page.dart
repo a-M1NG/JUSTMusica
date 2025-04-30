@@ -18,10 +18,10 @@ class MainPage extends StatefulWidget {
   const MainPage({super.key});
 
   @override
-  State<MainPage> createState() => _MainPageState();
+  State<MainPage> createState() => MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
   late List<PlaylistModel> _playlists;
   DatabaseService? _dbService;
@@ -104,6 +104,7 @@ class _MainPageState extends State<MainPage> {
   @override
   void dispose() {
     _dbService?.close();
+    _playbackService?.dispose();
     super.dispose();
   }
 
