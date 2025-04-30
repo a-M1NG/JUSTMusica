@@ -22,7 +22,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   final ItemScrollController itemScrollController = ItemScrollController();
   int? _currentIndex;
   List<LrcLine>? _lines;
-  static const int _paddingLines = 5; // 上下各留两行
+  static const int _paddingLines = 6;
 
   @override
   void initState() {
