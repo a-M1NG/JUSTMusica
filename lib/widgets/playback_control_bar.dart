@@ -10,6 +10,7 @@ import '../utils/thumbnail_generator.dart';
 import '../views/song_play_page.dart';
 import '../utils/tools.dart';
 import 'package:just_musica/widgets/volume_controller.dart';
+import '../widgets/progress_slider.dart';
 
 // 添加到文件中的其他地方
 class CustomTrackShape extends RoundedRectSliderTrackShape {
@@ -48,8 +49,6 @@ class PlaybackControlBar extends StatefulWidget {
 class _PlaybackControlBarState extends State<PlaybackControlBar> {
   double? _dragValue;
   late ValueNotifier<PlaybackMode> playbackModeNotifier;
-  bool _isHovering = false;
-  bool _isDragging = false;
   PlaybackMode prevmode = PlaybackMode.loopAll;
 
   @override
@@ -104,47 +103,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            MouseRegion(
-              onEnter: (_) => setState(() => _isHovering = true),
-              onExit: (_) => setState(() => _isHovering = false),
-              child: Container(
-                height: 4,
-                // margin: const EdgeInsets.symmetric(horizontal: -14),
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    trackHeight: 2,
-                    thumbShape: RoundSliderThumbShape(
-                      enabledThumbRadius: (_isHovering || _isDragging) ? 6 : 0,
-                    ),
-                    overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
-                    trackShape: CustomTrackShape(),
-                  ),
-                  child: Slider(
-                    value: _dragValue ?? state!.position.inSeconds.toDouble(),
-                    max: state!.duration.inSeconds.toDouble(),
-                    min: 0,
-                    onChangeStart: (value) {
-                      setState(() {
-                        _isDragging = true;
-                      });
-                    },
-                    onChanged: (value) {
-                      setState(() {
-                        _dragValue = value;
-                      });
-                    },
-                    onChangeEnd: (value) {
-                      widget.playbackService.seekTo(value.toInt()).then((_) {
-                        setState(() {
-                          _dragValue = null;
-                          _isDragging = false;
-                        });
-                      });
-                    },
-                  ),
-                ),
-              ),
-            ),
+            PlaybackProgressBar(playbackService: widget.playbackService),
             Container(
               height: 80,
               color: Theme.of(context).primaryColor.withOpacity(0.15),
@@ -171,7 +130,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                           IconButton(
                             icon: Icon(
                               size: 32,
-                              state.isPlaying ? Icons.pause : Icons.play_arrow,
+                              state!.isPlaying ? Icons.pause : Icons.play_arrow,
                             ),
                             onPressed: state.isPlaying
                                 ? widget.playbackService.pause
