@@ -48,8 +48,38 @@ Color _tintColor(Color color, double factor) {
   );
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class MyApp extends StatefulWidget {
+  const MyApp({Key? key}) : super(key: key);
+  @override
+  _MyAppState createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
+  final GlobalKey<MainPageState> _mainPageKey = GlobalKey<MainPageState>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // 在此处保存当前状态到文件，确保在应用退出前执行
+      debugPrint('Saving state before exit...');
+      debugPrint('MainPage disposed');
+      _mainPageKey.currentState?.dispose();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,7 +101,7 @@ class MyApp extends StatelessWidget {
             title: "JUST Musica",
             debugShowCheckedModeBanner: false,
             theme: themeService.currentThemeData,
-            home: const MainPage(),
+            home: MainPage(key: _mainPageKey),
             builder: (context, child) {
               // 确保主题加载完成后再构建UI
               return FutureBuilder(
