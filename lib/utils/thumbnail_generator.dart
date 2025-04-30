@@ -153,15 +153,15 @@ class ThumbnailGenerator {
   }
 
   Future<void> prefetchInfo(SongModel song) async {
+    if (_gradientCache.containsKey(song.id!)) {
+      return; // 已经预加载过
+    }
     if (song.id == null) {
       debugPrint('无法预加载信息: song.id为空');
       return;
     }
 
     try {
-      if (_gradientCache.containsKey(song.id!)) {
-        return; // 已经预加载过
-      }
       // 1. 获取并缓存封面图片
       Image? coverImage;
       final cachedImage = _oriImageCache.get(song.path);

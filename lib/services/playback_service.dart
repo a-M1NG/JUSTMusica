@@ -418,17 +418,6 @@ class PlaybackService extends ChangeNotifier {
     } else {
       _currentPlaylist = _oriPlaylist.toList();
     }
-    // prefetch song info for prev and next
-    // only if switch to or from random
-    if (mode == PlaybackMode.random || mode == PlaybackMode.loopAll) {
-      _logger.i('Prefetching info for next song');
-      await ThumbnailGenerator().prefetchInfo(
-          _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
-      _logger.i('Prefetching info for previous song');
-      await ThumbnailGenerator().prefetchInfo(_currentPlaylist[
-          (_currentIndex - 1 + _currentPlaylist.length) %
-              _currentPlaylist.length]);
-    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('playback_mode', mode.toString());
     // _updatePlaybackState();
