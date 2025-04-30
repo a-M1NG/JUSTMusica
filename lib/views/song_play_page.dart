@@ -11,7 +11,7 @@ import '../widgets/lyrics_display.dart';
 import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
 import 'package:just_musica/widgets/volume_controller.dart';
-import 'package:palette_generator/palette_generator.dart';
+import '../widgets/progress_slider.dart';
 
 class SongPlayPage extends StatefulWidget {
   SongModel song;
@@ -194,6 +194,13 @@ class _SongPlayPageState extends State<SongPlayPage> {
         height: size,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              offset: const Offset(0, 4),
+              blurRadius: 8.0,
+            ),
+          ],
           image: _coverImage != null
               ? DecorationImage(
                   image: _coverImage!.image,
@@ -216,15 +223,27 @@ class _SongPlayPageState extends State<SongPlayPage> {
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
-        Text(
-          song.artist ?? '未知歌手',
-          style: const TextStyle(fontSize: 18),
+        Row(
+          children: [
+            const Icon(Icons.person, size: 20),
+            const SizedBox(width: 4),
+            Text(
+              song.artist ?? '未知歌手',
+              style: const TextStyle(fontSize: 18),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
-        Text(
-          song.album ?? '未知专辑',
-          style: const TextStyle(
-              fontSize: 17, color: Color.fromARGB(255, 45, 58, 173)),
+        Row(
+          children: [
+            const Icon(Icons.album, size: 20),
+            const SizedBox(width: 4),
+            Text(
+              song.album ?? '未知专辑',
+              style: const TextStyle(
+                  fontSize: 17, color: Color.fromARGB(255, 45, 58, 173)),
+            ),
+          ],
         ),
       ],
     );
@@ -253,13 +272,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   ),
                 ),
                 Expanded(
-                  child: Slider(
-                    value: (state?.position.inSeconds ?? 0).toDouble(),
-                    max: (state?.duration.inSeconds ?? 1).toDouble(),
-                    onChanged: (value) {
-                      widget.playbackService.seekTo(value.toInt());
-                    },
-                  ),
+                  child: PlaybackProgressBar(
+                      playbackService: widget.playbackService),
                 ),
                 SizedBox(
                   width: 50,
