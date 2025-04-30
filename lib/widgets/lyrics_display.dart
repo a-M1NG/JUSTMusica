@@ -24,6 +24,8 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   List<LrcLine>? _lines;
   static const int _paddingLines = 6;
 
+  bool _needsInitialJump = true;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +42,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   void _loadLyrics() {
     widget.lyricsFuture.then((lyrics) {
+      _needsInitialJump = true;
       setState(() {
         _lines = _parseLyrics(lyrics);
         if (_lines != null && _lines!.isNotEmpty) {
@@ -71,15 +74,28 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
         currentTime = pos.inSeconds;
 
         final currentIndex = _findCurrentIndex(_lines!, currentTime);
-        if (_currentIndex != currentIndex && currentIndex >= 0) {
-          _currentIndex = currentIndex;
+        final newIndex = _findCurrentIndex(_lines!, currentTime);
+
+        if (newIndex >= 0 && newIndex != _currentIndex) {
+          _currentIndex = newIndex;
+
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            itemScrollController.scrollTo(
-              index: currentIndex,
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeInOut,
-              alignment: 0.5,
-            );
+            if (_needsInitialJump) {
+              // 首次打开或切歌时：无动画直接跳转
+              itemScrollController.jumpTo(
+                index: newIndex,
+                alignment: 0.5,
+              );
+              _needsInitialJump = false;
+            } else {
+              // 播放过程中：平滑滚动
+              itemScrollController.scrollTo(
+                index: newIndex,
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeInOut,
+                alignment: 0.5,
+              );
+            }
           });
         }
 
