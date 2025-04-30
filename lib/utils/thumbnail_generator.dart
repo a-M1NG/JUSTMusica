@@ -159,6 +159,9 @@ class ThumbnailGenerator {
     }
 
     try {
+      if (_gradientCache.containsKey(song.id!)) {
+        return; // 已经预加载过
+      }
       // 1. 获取并缓存封面图片
       Image? coverImage;
       final cachedImage = _oriImageCache.get(song.path);
