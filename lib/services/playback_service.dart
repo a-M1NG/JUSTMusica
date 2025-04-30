@@ -63,7 +63,7 @@ class PlaybackService extends ChangeNotifier {
   // PlaybackMode 的 getter 和 setter
   PlaybackMode get playbackMode => _playbackMode;
   set playbackMode(PlaybackMode mode) {
-    _playbackMode = mode;
+    setPlaybackMode(mode);
     _logger.i('Playback mode set to $mode');
     notifyListeners();
   }
@@ -314,6 +314,10 @@ class PlaybackService extends ChangeNotifier {
         _logger.i('Prefetching info for next song');
         await ThumbnailGenerator().prefetchInfo(
             _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
+        _logger.i('Prefetching info for previous song');
+        await ThumbnailGenerator().prefetchInfo(_currentPlaylist[
+            (_currentIndex - 1 + _currentPlaylist.length) %
+                _currentPlaylist.length]);
         notifyListeners();
       }
     } catch (e) {
