@@ -18,12 +18,14 @@ class SongPlayPage extends StatefulWidget {
   final PlaybackService playbackService;
   final FavoritesService favoritesService;
   final PlaylistService playlistService;
+  final ValueNotifier<PlaybackMode> playbackModeNotifier;
   SongPlayPage({
     super.key,
     required this.song,
     required this.playbackService,
     required this.favoritesService,
     required this.playlistService,
+    required this.playbackModeNotifier,
   });
 
   @override
@@ -33,7 +35,6 @@ class SongPlayPage extends StatefulWidget {
 class _SongPlayPageState extends State<SongPlayPage> {
   late StreamSubscription _currentSongSubscription;
   late Future<String> _lyricsFuture;
-  late ValueNotifier<PlaybackMode> _playbackModeNotifier;
   bool _isLoading = true;
   Image? _coverImage;
   LinearGradient? _gradient;
@@ -54,7 +55,6 @@ class _SongPlayPageState extends State<SongPlayPage> {
     widget.song = widget.playbackService.currentSong;
     _lyricsFuture = LyricsService().getLrcForSong(widget.song);
     _currentPlayBackMode = widget.playbackService.playbackMode;
-    _playbackModeNotifier = ValueNotifier<PlaybackMode>(_currentPlayBackMode);
     _loadAssets();
   }
 
@@ -63,6 +63,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
     final coverFuture = ThumbnailGenerator().getOriginCover(song.path);
     final gradientFuture = ThumbnailGenerator().generateGradient(song);
     final results = await Future.wait([coverFuture, gradientFuture]);
+    if (!mounted) return;
     setState(() {
       _coverImage = results[0] as Image;
       _gradient = results[1] as LinearGradient?;
@@ -73,15 +74,16 @@ class _SongPlayPageState extends State<SongPlayPage> {
   @override
   void dispose() {
     _currentSongSubscription.cancel();
-    _playbackModeNotifier.dispose();
     super.dispose();
   }
 
   void _switchPlayBackMode() {
     final nextMode = PlaybackMode.values[
-        (_playbackModeNotifier.value.index + 1) % PlaybackMode.values.length];
-    _playbackModeNotifier.value = nextMode;
-    widget.playbackService.setPlaybackMode(nextMode);
+        (widget.playbackModeNotifier.value.index + 1) %
+            PlaybackMode.values.length];
+    widget.playbackModeNotifier.value = nextMode;
+    widget.playbackService.playbackMode = nextMode;
+    widget.playbackService.notifyListeners();
   }
 
   @override
@@ -155,7 +157,9 @@ class _SongPlayPageState extends State<SongPlayPage> {
                       Expanded(
                         child: LyricsDisplay(
                           lyricsFuture: _lyricsFuture,
-                          onTapLyric: (time) => DoNothingAction(),
+                          onTapLyric: (time) =>
+                              widget.playbackService.seekTo(time),
+                          playbackService: widget.playbackService,
                         ),
                       ),
                     ],
@@ -185,24 +189,19 @@ class _SongPlayPageState extends State<SongPlayPage> {
     }
     return LayoutBuilder(builder: (context, constraints) {
       final size = min(constraints.maxHeight, constraints.maxWidth);
-      return Hero(
-        tag: 'song-cover-${song.id}',
-        child: Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            image: _coverImage != null
-                ? DecorationImage(
-                    image: _coverImage!.image,
-                    fit: BoxFit.cover,
-                  )
-                : null,
-          ),
-          child: _coverImage == null
-              ? const Center(child: CircularProgressIndicator())
+      return Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          image: _coverImage != null
+              ? DecorationImage(
+                  image: _coverImage!.image,
+                  fit: BoxFit.cover,
+                )
               : null,
         ),
+        child: null,
       );
     });
   }
@@ -275,7 +274,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 ValueListenableBuilder<PlaybackMode>(
-                  valueListenable: _playbackModeNotifier,
+                  valueListenable: widget.playbackModeNotifier,
                   builder: (context, mode, child) {
                     IconData icon;
                     switch (mode) {

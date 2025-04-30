@@ -27,6 +27,14 @@ class _VolumeControllerState extends State<VolumeController> {
   void initState() {
     super.initState();
     _volume = widget.playbackService.volume;
+    widget.playbackService.addListener(_onServiceChanged);
+  }
+
+  void _onServiceChanged() {
+    setState(() {
+      _volume = widget.playbackService.volume;
+      _isMuted = _volume == 0.0;
+    });
   }
 
   void _toggleMute() {
@@ -45,6 +53,7 @@ class _VolumeControllerState extends State<VolumeController> {
       _overlayEntry?.markNeedsBuild();
     });
     debugPrint("Volume toggled: $_volume, Muted: $_isMuted");
+    widget.playbackService.notifyListeners();
   }
 
   void _updateVolume(double newVolume) {
@@ -57,6 +66,7 @@ class _VolumeControllerState extends State<VolumeController> {
       }
       _overlayEntry?.markNeedsBuild();
     });
+    widget.playbackService.notifyListeners();
   }
 
   void _startHoverTimer() {
@@ -202,6 +212,7 @@ class _VolumeControllerState extends State<VolumeController> {
 
   @override
   void dispose() {
+    widget.playbackService.removeListener(_onServiceChanged);
     _hoverTimer?.cancel();
     _exitTimer?.cancel(); // 清理退出计时器
     _overlayEntry?.remove();
@@ -249,6 +260,20 @@ class _HorizontalVolumeControllerState
   void initState() {
     super.initState();
     _volume = widget.playbackService.volume;
+    widget.playbackService.addListener(_onServiceChanged);
+  }
+
+  @override
+  void dispose() {
+    widget.playbackService.removeListener(_onServiceChanged);
+    super.dispose();
+  }
+
+  void _onServiceChanged() {
+    setState(() {
+      _volume = widget.playbackService.volume;
+      _isMuted = _volume == 0.0;
+    });
   }
 
   void _toggleMute() {

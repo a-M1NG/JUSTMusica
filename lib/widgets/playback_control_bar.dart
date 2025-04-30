@@ -47,21 +47,25 @@ class PlaybackControlBar extends StatefulWidget {
 
 class _PlaybackControlBarState extends State<PlaybackControlBar> {
   double? _dragValue;
-  late ValueNotifier<PlaybackMode> _playbackModeNotifier;
+  late ValueNotifier<PlaybackMode> playbackModeNotifier;
   bool _isHovering = false;
   bool _isDragging = false;
+  PlaybackMode prevmode = PlaybackMode.loopAll;
 
   @override
   void initState() {
     super.initState();
-    _playbackModeNotifier = ValueNotifier(widget.playbackService.playbackMode);
+    playbackModeNotifier = ValueNotifier(widget.playbackService.playbackMode);
+    prevmode = widget.playbackService.playbackMode;
   }
 
   void _switchPlayBackMode() {
     final nextMode = PlaybackMode.values[
-        (_playbackModeNotifier.value.index + 1) % PlaybackMode.values.length];
-    _playbackModeNotifier.value = nextMode;
-    widget.playbackService.setPlaybackMode(nextMode);
+        (playbackModeNotifier.value.index + 1) % PlaybackMode.values.length];
+    playbackModeNotifier.value = nextMode;
+    widget.playbackService.playbackMode = nextMode;
+    widget.playbackService.notifyListeners();
+    prevmode = nextMode;
   }
 
   @override
@@ -185,7 +189,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       ValueListenableBuilder<PlaybackMode>(
-                        valueListenable: _playbackModeNotifier,
+                        valueListenable: playbackModeNotifier,
                         builder: (context, mode, child) {
                           IconData icon;
                           String toolstipText;
@@ -259,18 +263,15 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                 future: ThumbnailGenerator().getThumbnailProvider(song.path),
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
-                    return Hero(
-                      tag: 'song-cover-${song.id}',
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image(
-                          image: snapshot.data!,
-                          width: 72,
-                          height: 72,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              const Icon(Icons.music_note, size: 80),
-                        ),
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image(
+                        image: snapshot.data!,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const Icon(Icons.music_note, size: 80),
                       ),
                     );
                   }
@@ -396,6 +397,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
           playbackService: widget.playbackService,
           favoritesService: widget.favoritesService,
           playlistService: widget.playlistService,
+          playbackModeNotifier: playbackModeNotifier,
         ),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           var begin = const Offset(0.0, 1.0); // 从底部开始
