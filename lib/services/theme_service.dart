@@ -125,14 +125,6 @@ class ThemeService extends ChangeNotifier {
         ),
         elevation: 2,
       ),
-
-      // 输入框主题
-      // inputDecorationTheme: InputDecorationTheme(
-      //   border: OutlineInputBorder(
-      //     borderRadius: BorderRadius.circular(8),
-      //   ),
-      // ),
-
       brightness: Brightness.light,
     );
   }
@@ -186,14 +178,6 @@ class ThemeService extends ChangeNotifier {
           borderRadius: BorderRadius.circular(12),
         ),
       ),
-      // inputDecorationTheme: InputDecorationTheme(
-      //   border: OutlineInputBorder(
-      //     borderRadius: BorderRadius.circular(8),
-      //   ),
-      //   hintStyle: TextStyle(
-      //     color: colorScheme.onSurface.withOpacity(0.3),
-      //   ),
-      // ),
       brightness: Brightness.dark,
     );
   }
