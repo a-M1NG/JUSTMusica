@@ -420,7 +420,7 @@ class PlaybackService extends ChangeNotifier {
     }
     // prefetch song info for prev and next
     // only if switch to or from random
-    if (mode == PlaybackMode.random || mode == PlaybackMode.singleLoop) {
+    if (mode == PlaybackMode.random || mode == PlaybackMode.loopAll) {
       _logger.i('Prefetching info for next song');
       await ThumbnailGenerator().prefetchInfo(
           _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
