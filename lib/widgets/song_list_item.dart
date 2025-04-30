@@ -80,6 +80,7 @@ class _SongListItemState extends State<SongListItem> {
                 hoverColor: Colors.grey.withOpacity(0.1),
                 splashColor: Colors.transparent,
                 highlightColor: Colors.transparent,
+                borderRadius: BorderRadius.circular(8),
                 onTap: widget.isMultiSelectMode ?? false
                     ? widget.onSelect
                     : doNothing,
