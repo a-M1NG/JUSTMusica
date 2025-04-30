@@ -51,9 +51,9 @@ class _SongListItemState extends State<SongListItem> {
     return VisibilityDetector(
       key: ValueKey(widget.song.id),
       onVisibilityChanged: (visibilityInfo) {
-        if (visibilityInfo.visibleFraction > 0.5 && !_shouldLoadRealContent) {
+        if (visibilityInfo.visibleFraction > 0.01 && !_shouldLoadRealContent) {
           _isVisible = true;
-          _timer = Timer(const Duration(milliseconds: 50), () {
+          _timer = Timer(const Duration(milliseconds: 10), () {
             if (mounted && _isVisible) {
               setState(() {
                 _shouldLoadRealContent = true;
