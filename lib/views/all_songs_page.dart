@@ -132,6 +132,27 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
       final paths =
           result.paths.where((path) => path != null).cast<String>().toList();
       await MusicScannerService().importSongs(paths);
+      final progressController = StreamController<int>();
+      int currentProgress = 0;
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => ThumbnailGenerationDialog(
+          totalSongs: paths.length,
+          progressStream: progressController.stream,
+        ),
+      );
+      for (var i = 0; i < paths.length; i++) {
+        final path = paths[i];
+        await ThumbnailGenerator().generateThumbnail(path);
+        currentProgress = i + 1;
+        progressController.add(currentProgress);
+        // 添加微小延迟确保UI更新
+        await Future.delayed(Duration.zero);
+      }
+      progressController.close();
+
+      Navigator.of(context).pop();
       await loadSongs();
     }
   }
