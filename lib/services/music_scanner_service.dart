@@ -30,7 +30,8 @@ class MusicScannerService {
       final List<SongModel> songs = [];
       await for (var entity in directory.list(recursive: true)) {
         if (entity is File &&
-            _supportedExtensions.contains(p.extension(entity.path).toLowerCase())) {
+            _supportedExtensions
+                .contains(p.extension(entity.path).toLowerCase())) {
           final song = await _createSongModelFromFile(entity);
           if (song != null) {
             songs.add(song);
@@ -55,13 +56,15 @@ class MusicScannerService {
       for (var filePath in paths) {
         final file = File(filePath);
         if (await file.exists() &&
-            _supportedExtensions.contains(p.extension(filePath).toLowerCase())) {
+            _supportedExtensions
+                .contains(p.extension(filePath).toLowerCase())) {
           final song = await _createSongModelFromFile(file);
           if (song != null) {
             songsToImport.add(song);
           }
         } else {
-          _logger.w('File does not exist or is not a supported music file: $filePath');
+          _logger.w(
+              'File does not exist or is not a supported music file: $filePath');
         }
       }
 
@@ -88,7 +91,7 @@ class MusicScannerService {
         return SongModel(
           path: file.path,
           title: p.basenameWithoutExtension(file.path),
-          artist: 'Unknown Artist',
+          artist: '未知艺术家',
           album: null,
           duration: null, // 可通过 just_audio 获取时长
           coverPath: null,
@@ -97,8 +100,10 @@ class MusicScannerService {
       }
       return SongModel(
         path: file.path,
-        title: tag.title?.isNotEmpty == true ? tag.title : p.basenameWithoutExtension(file.path),
-        artist: tag.trackArtist?.isNotEmpty == true ? tag.trackArtist : 'Unknown Artist',
+        title: tag.title?.isNotEmpty == true
+            ? tag.title
+            : p.basenameWithoutExtension(file.path),
+        artist: tag.trackArtist?.isNotEmpty == true ? tag.trackArtist : '未知艺术家',
         album: tag.album?.isNotEmpty == true ? tag.album : null,
         duration: tag.duration,
         coverPath: null,
@@ -110,7 +115,7 @@ class MusicScannerService {
       return SongModel(
         path: file.path,
         title: p.basenameWithoutExtension(file.path),
-        artist: 'Unknown Artist',
+        artist: '未知艺术家',
         album: null,
         duration: null,
         coverPath: null,
