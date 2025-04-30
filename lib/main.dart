@@ -4,7 +4,6 @@ import 'services/database_service.dart';
 import 'services/playback_service.dart';
 import 'services/theme_service.dart';
 import 'views/main_page.dart';
-import 'package:window_size/window_size.dart';
 import 'dart:io';
 import 'package:window_manager/window_manager.dart';
 
@@ -27,18 +26,20 @@ class MyWindowListener extends WindowListener {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await windowManager.ensureInitialized();
 
-  // 仅在桌面平台生效
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    // 设置窗口标题（可选）
-    setWindowTitle('JUST Musica');
-
-    // 设置最小尺寸
-    setWindowMinSize(const Size(1160, 600));
+    await windowManager.ensureInitialized();
+    WindowOptions windowOptions = const WindowOptions(
+      minimumSize: Size(1260, 800),
+      title: 'JUST Musica',
+    );
+    windowManager.waitUntilReadyToShow(windowOptions, () async {
+      await windowManager.show();
+      await windowManager.focus();
+    });
   }
+
   DatabaseService.init();
-  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
