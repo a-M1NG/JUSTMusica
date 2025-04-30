@@ -31,12 +31,12 @@ class NavigationBarWidget extends StatefulWidget {
 }
 
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
-  bool _playlistsExpanded = true;
+  bool _playlistsExpanded = false;
   bool _isHovering = false;
   int lastIndex = 4;
   @override
   Widget build(BuildContext context) {
-    debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
+    // debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
     return Container(
       width: 250,
       color: Theme.of(context).primaryColor.withOpacity(0.5),
