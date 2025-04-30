@@ -5,11 +5,29 @@ import 'services/playback_service.dart';
 import 'services/theme_service.dart';
 import 'views/main_page.dart';
 import 'package:window_size/window_size.dart';
-import 'dart:ui';
 import 'dart:io';
+import 'package:window_manager/window_manager.dart';
+
+BuildContext? globalProviderContext;
+
+class MyWindowListener extends WindowListener {
+  final BuildContext context;
+  MyWindowListener(this.context);
+
+  @override
+  Future<bool> onWindowClose() async {
+    if (globalProviderContext != null) {
+      final playbackService =
+          Provider.of<PlaybackService>(globalProviderContext!, listen: false);
+      await playbackService.saveStateToPrefs();
+    }
+    return true; // 允许窗口关闭
+  }
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await windowManager.ensureInitialized();
 
   // 仅在桌面平台生效
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
@@ -56,7 +74,7 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   final GlobalKey<MainPageState> _mainPageKey = GlobalKey<MainPageState>();
-
+  late MyWindowListener _windowListener;
   @override
   void initState() {
     super.initState();
@@ -77,12 +95,15 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    windowManager.removeListener(_windowListener);
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _windowListener = MyWindowListener(context);
+    windowManager.addListener(_windowListener);
     return MultiProvider(
       providers: [
         ChangeNotifierProvider<PlaybackService>(
@@ -96,7 +117,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       child: Builder(
         builder: (context) {
           final themeService = Provider.of<ThemeService>(context, listen: true);
-
+          globalProviderContext = context; // 保存全局上下文
           return MaterialApp(
             title: "JUST Musica",
             debugShowCheckedModeBanner: false,

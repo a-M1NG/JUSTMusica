@@ -27,31 +27,32 @@ class MainPageState extends State<MainPage> {
   DatabaseService? _dbService;
   FavoritesService? _favoritesService;
   PlaylistService? _playlistService;
-  PlaybackService? _playbackService;
   bool _isInitializing = true;
 
   List<Widget> get _pages {
     if (_favoritesService == null || _playlistService == null) {
       return [const Center(child: CircularProgressIndicator())];
     }
+    final playbackService =
+        Provider.of<PlaybackService>(context, listen: false);
     List<Widget> res = [
       AllSongsPage(
         favoritesService: _favoritesService!,
         databaseService: _dbService!,
-        playbackService: _playbackService!,
+        playbackService: playbackService,
       ),
       FavoritesPage(
         favoritesService: _favoritesService!,
-        playbackService: _playbackService!,
+        playbackService: playbackService,
       ),
       PlaybackListPage(
         favoritesService: _favoritesService!,
-        playbackService: _playbackService!,
+        playbackService: playbackService,
       ),
       PlaylistsPage(
         playlistService: _playlistService!,
         favoritesService: _favoritesService!,
-        playbackService: _playbackService!,
+        playbackService: playbackService,
       ),
     ];
     for (var playlist in _playlists) {
@@ -59,7 +60,7 @@ class MainPageState extends State<MainPage> {
           playlist: playlist,
           playlistService: _playlistService!,
           favoritesService: _favoritesService!,
-          playbackService: _playbackService!));
+          playbackService: playbackService));
     }
     res.add(SettingsPage());
     return res;
@@ -81,7 +82,6 @@ class MainPageState extends State<MainPage> {
       // Initialize dependent services
       _favoritesService = FavoritesService(db);
       _playlistService = PlaylistService(db);
-      _playbackService = PlaybackService();
 
       await _updatePlaylists();
 
@@ -104,7 +104,6 @@ class MainPageState extends State<MainPage> {
   @override
   void dispose() {
     _dbService?.close();
-    _playbackService?.dispose();
     super.dispose();
   }
 
@@ -116,6 +115,8 @@ class MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
+    final playbackService =
+        Provider.of<PlaybackService>(context, listen: false);
     if (_isInitializing || _dbService == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
@@ -139,7 +140,7 @@ class MainPageState extends State<MainPage> {
                     onItemTapped: _onNavItemTapped,
                     playlistService: _playlistService!,
                     favoritesService: _favoritesService!,
-                    playbackService: _playbackService!,
+                    playbackService: playbackService,
                     onPlaylistsChanged: _updatePlaylists,
                   ),
                   Expanded(
@@ -154,7 +155,7 @@ class MainPageState extends State<MainPage> {
               child: PlaybackControlBar(
                 playlistService: _playlistService!,
                 favoritesService: _favoritesService!,
-                playbackService: _playbackService!,
+                playbackService: playbackService,
               ),
             ),
           ],

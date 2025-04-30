@@ -471,4 +471,10 @@ class PlaybackService extends ChangeNotifier {
     _volumeSubject.close(); // 关闭音量流
     super.dispose();
   }
+
+  Future<void> saveStateToPrefs() async {
+    await prefs.reload();
+    await prefs.setDouble('volume', _volume);
+    await prefs.setString('playback_mode', _playbackMode.toString());
+  }
 }
