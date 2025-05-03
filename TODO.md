@@ -10,3 +10,50 @@
 - [x] (可选) 在数据库中添加表项记录上次播放的歌曲，音量，播放列表，主题
 
 问题：收藏夹服务新建收藏夹没有考虑同名，要不要添加同名约束？
+
+
+可以不缓存thumb，直接算，用await getCover.then()=> return img
+参考 coriandor_player:/lib/library/audio_library.dart里面的具体实现
+
+  /// 读取音乐文件的图片，自动适应缩放
+  Future<ImageProvider?> _getResizedPic({
+    required int width,
+    required int height,
+  }) async {
+    final ratio = PlatformDispatcher.instance.views.first.devicePixelRatio;
+    return getPictureFromPath(
+      path: path,
+      width: (width * ratio).round(),
+      height: (height * ratio).round(),
+    ).then((pic) {
+      if (pic == null) return null;
+
+      return MemoryImage(pic);
+    });
+  }
+
+  /// 缓存ImageProvider而不是Uint8List（bytes）
+  /// 缓存bytes时，每次加载图片都要重新解码，内存占用很大。快速滚动时能到700mb
+  /// 缓存ImageProvider不用重新解码。快速滚动时最多250mb
+  /// 48*48
+  Future<ImageProvider?> get cover {
+    if (_cover == null) {
+      return _getResizedPic(width: 48, height: 48).then((value) {
+        if (value == null) return null;
+
+        _cover = value;
+        return _cover;
+      });
+    }
+    return Future.value(_cover);
+  }
+
+  /// audio detail page 不需要频繁调用，所以不缓存图片
+  /// 200 * 200
+  Future<ImageProvider?> get mediumCover =>
+      _getResizedPic(width: 200, height: 200);
+
+  /// now playing 不需要频繁调用，所以不缓存图片
+  /// size: 400 * devicePixelRatio（屏幕缩放大小）
+  Future<ImageProvider?> get largeCover =>
+      _getResizedPic(width: 400, height: 400);

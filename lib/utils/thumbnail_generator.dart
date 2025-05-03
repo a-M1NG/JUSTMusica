@@ -12,6 +12,7 @@ import 'package:palette_generator/palette_generator.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audiotags/audiotags.dart';
 import '../services/database_service.dart';
+import 'dart:math';
 
 class LRUCache<K, V> {
   final int capacity;
@@ -152,6 +153,24 @@ class ThumbnailGenerator {
     return Image.memory(Uint8List.fromList(img.encodePng(image)));
   }
 
+  Map<String, int> _analyzeDominantColor(Uint8List pngBytes) {
+    final image = img.decodeImage(pngBytes);
+    if (image == null) return {'r': 128, 'g': 128, 'b': 128};
+
+    final colorCount = <String, int>{};
+    for (var y = 0; y < image.height; y += 2) {
+      for (var x = 0; x < image.width; x += 2) {
+        final pixel = image.getPixel(x, y); // Pixel 类型
+        final key = '${pixel.r},${pixel.g},${pixel.b}';
+        colorCount[key] = (colorCount[key] ?? 0) + 1;
+      }
+    }
+    final dominantKey =
+        colorCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    final parts = dominantKey.split(',').map(int.parse).toList();
+    return {'r': parts[0], 'g': parts[1], 'b': parts[2]};
+  }
+
   Future<void> prefetchInfo(SongModel song) async {
     if (_gradientCache.containsKey(song.id!)) {
       return; // 已经预加载过
@@ -166,12 +185,11 @@ class ThumbnailGenerator {
       Image? coverImage;
       final cachedImage = _oriImageCache.get(song.path);
 
+      Uint8List? coverData;
       if (cachedImage == null) {
         final tag = await AudioTags.read(song.path);
-        final coverData = tag?.pictures.firstOrNull?.bytes;
-
+        coverData = tag?.pictures.firstOrNull?.bytes;
         if (coverData == null || coverData.isEmpty) {
-          // 设置默认封面
           coverImage = Image.asset('assets/images/default_cover.jpg');
           _oriImageCache[song.path] = coverImage;
         } else {
@@ -182,29 +200,31 @@ class ThumbnailGenerator {
         coverImage = cachedImage;
       }
 
-      // 2. 生成并缓存渐变色
+      // 2. 生成并缓存渐变色（用 compute 分析主色调）
       if (!_gradientCache.containsKey(song.id!)) {
-        final paletteGenerator =
-            await PaletteGenerator.fromImageProvider(coverImage.image);
-
-        final dominantColor =
-            paletteGenerator.dominantColor?.color ?? Colors.grey[800]!;
-        final vibrantColor =
-            paletteGenerator.vibrantColor?.color ?? dominantColor;
-        final lightVibrantColor =
-            paletteGenerator.lightVibrantColor?.color ?? vibrantColor;
-
+        // 取 png 数据
+        Uint8List? pngBytes;
+        if (coverData != null) {
+          pngBytes = coverData;
+        } else if (coverImage is Image && coverImage.image is MemoryImage) {
+          pngBytes = (coverImage.image as MemoryImage).bytes;
+        }
+        if (pngBytes == null) {
+          _gradientCache[song.id!] = null;
+          return;
+        }
+        final rgb = await compute(_analyzeDominantColor, pngBytes);
+        final color = Color.fromRGBO(rgb['r']!, rgb['g']!, rgb['b']!, 1.0);
         final gradient = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            lightVibrantColor.withOpacity(0.8),
-            vibrantColor.withOpacity(0.8),
-            dominantColor.withOpacity(0.8),
+            color.withOpacity(0.8),
+            color.withOpacity(0.6),
+            color.withOpacity(0.4),
           ],
           stops: const [0.0, 0.5, 1.0],
         );
-
         _gradientCache[song.id!] = gradient;
       }
     } catch (e) {
