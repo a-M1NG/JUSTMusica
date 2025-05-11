@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:just_musica/services/theme_service.dart';
+import 'package:provider/provider.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 import 'package:just_musica/services/playback_service.dart';
 
@@ -25,6 +27,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
   static const int _paddingLines = 6;
 
   bool _needsInitialJump = true;
+  double lyricSize = 20.0; // 字体大小
 
   @override
   void initState() {
@@ -58,11 +61,14 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
 
   @override
   Widget build(BuildContext context) {
+    final themeService = Provider.of<ThemeService>(context);
+    lyricSize = themeService.lyricFontSize;
+    debugPrint("Curr size $lyricSize");
     if (_lines == null) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_lines!.isEmpty) {
-      return const Center(child: Text('暂无歌词', style: TextStyle(fontSize: 18)));
+      return Center(child: Text('暂无歌词', style: TextStyle(fontSize: lyricSize)));
     }
 
     return StreamBuilder<PlaybackState>(
@@ -122,7 +128,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                       duration: const Duration(milliseconds: 300),
                       style: TextStyle(
                         fontFamily: "HarmonyOS_Sans_SC",
-                        fontSize: 20,
+                        fontSize: lyricSize,
                         fontWeight:
                             isCurrent ? FontWeight.bold : FontWeight.normal,
                         color: isCurrent

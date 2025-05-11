@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/theme_service.dart';
 
 class SettingsPage extends StatelessWidget {
   const SettingsPage({super.key});
 
+  @override
   @override
   Widget build(BuildContext context) {
     final themeService = Provider.of<ThemeService>(context);
@@ -12,7 +14,7 @@ class SettingsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('设置'),
+        title: const Text('设置'), // Settings
         elevation: 0,
       ),
       backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
@@ -20,34 +22,70 @@ class SettingsPage extends StatelessWidget {
         child: Padding(
           padding: const EdgeInsets.all(24.0),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            // <--- 将 Row 更改为 Column
+            crossAxisAlignment: CrossAxisAlignment.start, // 使子项左对齐
             children: [
-              const Text(
-                '选择主题',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.2,
-                ),
+              // 第一行：主题选择
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '选择主题', // Select Theme
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Consumer<ThemeService>(
+                    builder: (context, themeService, _) {
+                      return ResponsiveGrid(
+                        crossAxisCount:
+                            MediaQuery.of(context).size.width > 600 ? 6 : 3,
+                        children: themeService.availableThemes.map((theme) {
+                          final isSelected = theme.name == currentTheme.name;
+                          return ThemeCard(
+                            theme: theme,
+                            isSelected: isSelected,
+                            onTap: () {
+                              themeService.setThemeByName(theme.name);
+                            },
+                          );
+                        }).toList(),
+                      );
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 24),
-              Consumer<ThemeService>(
-                builder: (context, themeService, _) {
-                  return ResponsiveGrid(
-                    crossAxisCount:
-                        MediaQuery.of(context).size.width > 600 ? 6 : 3,
-                    children: themeService.availableThemes.map((theme) {
-                      final isSelected = theme.name == currentTheme.name;
-                      return ThemeCard(
-                        theme: theme,
-                        isSelected: isSelected,
-                        onTap: () {
-                          themeService.setThemeByName(theme.name);
+
+              const SizedBox(height: 32), // <--- 用于两行之间的垂直间距
+
+              // 第二行：字体大小调整
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    '字体大小',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Consumer<ThemeService>(
+                    // 使用 Consumer 获取最新的字体大小并传递给 FontSizeSliderWidget
+                    builder: (context, themeServiceInstance, child) {
+                      return FontSizeSliderWidget(
+                        initialSize: themeServiceInstance.getLyricFontSize(),
+                        onSizeChangedFinal: (newSize) {
+                          themeServiceInstance.setLyricFontSize(newSize);
                         },
                       );
-                    }).toList(),
-                  );
-                },
+                    },
+                  ),
+                ],
               ),
             ],
           ),
@@ -220,6 +258,81 @@ class ResponsiveGrid extends StatelessWidget {
       mainAxisSpacing: 16,
       childAspectRatio: 1.6,
       children: children,
+    );
+  }
+}
+
+class FontSizeSliderWidget extends StatefulWidget {
+  final double initialSize;
+  final ValueChanged<double> onSizeChangedFinal; // 滑动结束后的回调
+
+  const FontSizeSliderWidget({
+    super.key,
+    required this.initialSize,
+    required this.onSizeChangedFinal,
+  });
+
+  @override
+  State<FontSizeSliderWidget> createState() => _FontSizeSliderWidgetState();
+}
+
+class _FontSizeSliderWidgetState extends State<FontSizeSliderWidget> {
+  late double _currentSliderValue;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentSliderValue = widget.initialSize;
+  }
+
+  // 当父Widget传入的 initialSize 发生变化时，确保滑块也更新
+  // (例如，如果字体大小可以从其他地方更改)
+  @override
+  void didUpdateWidget(FontSizeSliderWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSize != oldWidget.initialSize) {
+      // 只有当外部传入的值确实改变，并且与当前滑块的值不同时才更新
+      // 这样可以避免在用户拖动时被外部更新意外覆盖
+      if (widget.initialSize != _currentSliderValue) {
+        setState(() {
+          _currentSliderValue = widget.initialSize;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SizedBox(
+          width: 50,
+          child: Center(
+            child: Text(
+              _currentSliderValue.toString(),
+              style: const TextStyle(fontSize: 20),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Slider(
+            value: _currentSliderValue,
+            min: 20.0,
+            max: 30.0,
+            divisions: 20, // (40-20)/20 = 1.0 step size
+            label: _currentSliderValue.toString(),
+            onChanged: (newValue) {
+              setState(() {
+                _currentSliderValue = newValue; // 实时更新本地状态，使滑块跟随
+              });
+            },
+            onChangeEnd: (finalValue) {
+              // 使用_currentSliderValue确保是用户最终选择的值
+              widget.onSizeChangedFinal(_currentSliderValue);
+            },
+          ),
+        ),
+      ],
     );
   }
 }

@@ -37,6 +37,7 @@ class ThemeService extends ChangeNotifier {
   ];
 
   late AppTheme _currentTheme;
+  late SharedPreferences _prefs;
 
   ThemeService() {
     _currentTheme = _availableThemes.first;
@@ -49,8 +50,8 @@ class ThemeService extends ChangeNotifier {
 
   Future<void> _loadTheme() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final themeIndex = prefs.getInt(_themeKey) ?? 0;
+      _prefs = await SharedPreferences.getInstance();
+      final themeIndex = _prefs.getInt(_themeKey) ?? 0;
       if (themeIndex >= 0 && themeIndex < _availableThemes.length) {
         _currentTheme = _availableThemes[themeIndex];
         notifyListeners();
@@ -67,6 +68,20 @@ class ThemeService extends ChangeNotifier {
       await prefs.setInt(_themeKey, index);
       notifyListeners();
     }
+  }
+
+  double get lyricFontSize {
+    final currLyricsFontSize = _prefs.getDouble('lyricFontSize') ?? 20.0;
+    return currLyricsFontSize;
+  }
+
+  double getLyricFontSize() {
+    final currLyricsFontSize = _prefs.getDouble('lyricFontSize') ?? 20.0;
+    return currLyricsFontSize;
+  }
+
+  void setLyricFontSize(double size) {
+    _prefs.setDouble('lyricFontSize', size);
   }
 
   Future<void> setThemeByName(String name) async {
