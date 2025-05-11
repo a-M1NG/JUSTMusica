@@ -111,7 +111,7 @@ class ThumbnailGenerator {
   ThumbnailGenerator._internal();
 
   static const int _thumbnailUiCacheCapacity = 200;
-  static const int _originalCoverUiCacheCapacity = 20;
+  static const int _originalCoverUiCacheCapacity = 60;
   static const int _gradientUiCacheCapacity = 50;
 
   final _imageCache =
