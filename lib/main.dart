@@ -6,6 +6,7 @@ import 'services/theme_service.dart';
 import 'views/main_page.dart';
 import 'dart:io';
 import 'package:window_manager/window_manager.dart';
+import 'package:just_musica/utils/thumbnail_generator.dart';
 
 BuildContext? globalProviderContext;
 
@@ -19,6 +20,7 @@ class MyWindowListener extends WindowListener {
       final playbackService =
           Provider.of<PlaybackService>(globalProviderContext!, listen: false);
       await playbackService.saveStateToPrefs();
+      ThumbnailGenerator().close();
     }
     return true; // 允许窗口关闭
   }
@@ -26,6 +28,7 @@ class MyWindowListener extends WindowListener {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await ThumbnailGenerator().init();
 
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     await windowManager.ensureInitialized();

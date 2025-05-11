@@ -195,10 +195,10 @@ class PlaybackService extends ChangeNotifier {
   Future<void> setPlaybackList(List<SongModel> songs, SongModel song) async {
     try {
       _currentPlaylist = List.from(songs);
-      final playbackList =
-          _currentPlaylist.map((song) => song.toMap()).toList();
-      final jsonStr = jsonEncode(playbackList);
-      prefs.setString('playback_list', jsonStr);
+      // final playbackList =
+      //     _currentPlaylist.map((song) => song.toMap()).toList();
+      // final jsonStr = jsonEncode(playbackList);
+      // prefs.setString('playback_list', jsonStr);
       _oriPlaylist = _currentPlaylist.toList();
       if (playbackMode == PlaybackMode.random) {
         _currentPlaylist.shuffle();
@@ -308,16 +308,19 @@ class PlaybackService extends ChangeNotifier {
         await _audioPlayer.setVolume(_volume);
         _updatePlaybackState(currentSong: song, isPlaying: true);
         _logger.i('Playing song: ${song.title}');
+        // now the thumbservice is running at background as an isolate
+        // and will no longer causing lag in UI thread
+        // therefore prefetching info will be not necessary.
         // // 预取信息
-        _logger.i('Prefetching info for song');
-        await ThumbnailGenerator().prefetchInfo(song);
-        _logger.i('Prefetching info for next song');
-        await ThumbnailGenerator().prefetchInfo(
-            _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
-        _logger.i('Prefetching info for previous song');
-        await ThumbnailGenerator().prefetchInfo(_currentPlaylist[
-            (_currentIndex - 1 + _currentPlaylist.length) %
-                _currentPlaylist.length]);
+        // _logger.i('Prefetching info for song');
+        // await ThumbnailGenerator().prefetchInfo(song);
+        // _logger.i('Prefetching info for next song');
+        // await ThumbnailGenerator().prefetchInfo(
+        //     _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
+        // _logger.i('Prefetching info for previous song');
+        // await ThumbnailGenerator().prefetchInfo(_currentPlaylist[
+        //     (_currentIndex - 1 + _currentPlaylist.length) %
+        //         _currentPlaylist.length]);
         notifyListeners();
       }
     } catch (e) {
@@ -480,5 +483,8 @@ class PlaybackService extends ChangeNotifier {
     await prefs.reload();
     await prefs.setDouble('volume', _volume);
     await prefs.setString('playback_mode', _playbackMode.toString());
+    final playbackList = _currentPlaylist.map((song) => song.toMap()).toList();
+    final jsonStr = jsonEncode(playbackList);
+    await prefs.setString('playback_list', jsonStr);
   }
 }

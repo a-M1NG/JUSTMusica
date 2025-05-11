@@ -53,7 +53,7 @@ class _SongListItemState extends State<SongListItem> {
       onVisibilityChanged: (visibilityInfo) {
         if (visibilityInfo.visibleFraction > 0.1 && !_shouldLoadRealContent) {
           _isVisible = true;
-          _timer = Timer(const Duration(milliseconds: 150), () {
+          _timer = Timer(const Duration(milliseconds: 25), () {
             if (mounted && _isVisible) {
               setState(() {
                 _shouldLoadRealContent = true;

@@ -1,30 +1,30 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+// Assuming 'package:flutter/services.dart'; is still needed for rootBundle if AssetImages are used extensively for defaults.
 import 'package:image/image.dart' as img;
-import 'package:just_musica/models/song_model.dart';
-import 'package:palette_generator/palette_generator.dart';
+import 'package:just_musica/models/song_model.dart'; // Assuming this model exists
+// import 'package:palette_generator/palette_generator.dart'; // PaletteGenerator is heavy, using simpler dominant color for now
 import 'package:path_provider/path_provider.dart';
 import 'package:audiotags/audiotags.dart';
-import '../services/database_service.dart';
-import 'dart:math';
+import '../services/database_service.dart'; // Assuming this service exists
 
+// LRUCache remains the same as provided by the user
 class LRUCache<K, V> {
   final int capacity;
   final Map<K, V> _cache = {};
   final LinkedHashMap<K, bool> _usage = LinkedHashMap<K, bool>();
 
-  LRUCache(this.capacity);
+  LRUCache(this.capacity) : assert(capacity > 0);
 
   V? get(K key) {
     if (!_cache.containsKey(key)) return null;
-
-    // 更新使用顺序
     _usage.remove(key);
     _usage[key] = true;
     return _cache[key];
@@ -37,14 +37,11 @@ class LRUCache<K, V> {
       _usage[key] = true;
       return;
     }
-
-    // 达到容量上限，移除最久未使用的项
     if (_cache.length >= capacity && _usage.isNotEmpty) {
       final oldestKey = _usage.keys.first;
       _cache.remove(oldestKey);
       _usage.remove(oldestKey);
     }
-
     _cache[key] = value;
     _usage[key] = true;
   }
@@ -58,305 +55,556 @@ class LRUCache<K, V> {
   }
 }
 
+// Data classes for isolate communication
+class _IsolateRequest {
+  final String id;
+  final String command;
+  final dynamic payload;
+
+  _IsolateRequest({required this.id, required this.command, this.payload});
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'command': command,
+        'payload': payload,
+      };
+
+  factory _IsolateRequest.fromJson(Map<String, dynamic> json) {
+    return _IsolateRequest(
+      id: json['id'],
+      command: json['command'],
+      payload: json['payload'],
+    );
+  }
+}
+
+class _IsolateResponse {
+  final String id;
+  final dynamic data;
+  final String? error;
+
+  _IsolateResponse({required this.id, this.data, this.error});
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'data': data,
+        'error': error,
+      };
+
+  factory _IsolateResponse.fromJson(Map<String, dynamic> json) {
+    return _IsolateResponse(
+      id: json['id'],
+      data: json['data'],
+      error: json['error'],
+    );
+  }
+}
+
+/// ThumbnailGenerator Singleton
+/// Manages communication with the JustMusicaThumbservice isolate.
+/// Handles caching of Flutter UI objects (ImageProvider, Image, LinearGradient).
 class ThumbnailGenerator {
-  // 缩略图尺寸
-  static const int _thumbnailSize = 100;
-  static const int _thumbnailCacheCapacity = 200;
-  static const int _originalCoverCacheCapacity = 20;
-  static final _imageCache =
-      LRUCache<String, ImageProvider>(_thumbnailCacheCapacity);
-  static final _oriImageCache =
-      LRUCache<String, Image>(_originalCoverCacheCapacity);
-  static final _gradientCache =
-      LRUCache<int, LinearGradient?>(_originalCoverCacheCapacity);
+  static final ThumbnailGenerator _instance = ThumbnailGenerator._internal();
+  factory ThumbnailGenerator() => _instance;
 
-  Future<ImageProvider> getThumbnailProvider(String songPath) async {
-    final cachedProvider = _imageCache.get(songPath);
-    if (cachedProvider != null) {
-      return cachedProvider;
+  ThumbnailGenerator._internal();
+
+  static const int _thumbnailUiCacheCapacity = 200;
+  static const int _originalCoverUiCacheCapacity = 20;
+  static const int _gradientUiCacheCapacity = 50;
+
+  final _imageCache =
+      LRUCache<String, ImageProvider>(_thumbnailUiCacheCapacity);
+  final _oriImageCache = LRUCache<String, Image>(_originalCoverUiCacheCapacity);
+  final _gradientCache =
+      LRUCache<int, LinearGradient?>(_gradientUiCacheCapacity);
+
+  Isolate? _isolate;
+  SendPort? _toIsolateSendPort;
+  final ReceivePort _fromIsolateReceivePort = ReceivePort();
+  final Map<String, Completer<dynamic>> _completers = {};
+  String _thumbDirectoryPath = '';
+  bool _isInitialized = false;
+  int _requestIdCounter = 0;
+
+  Future<void> init() async {
+    if (_isInitialized) return;
+
+    final docDir = await getApplicationDocumentsDirectory();
+    _thumbDirectoryPath = '${docDir.path}/JUSTMUSIC/thumbs';
+    final thumbDir = Directory(_thumbDirectoryPath);
+    if (!await thumbDir.exists()) {
+      await thumbDir.create(recursive: true);
     }
 
-    final filePath = await getThumbnail(songPath);
-    if (filePath.isEmpty) {
-      return const AssetImage('assets/images/default_cover.jpg');
-    }
+    _isolate = await Isolate.spawn(
+      _justMusicaThumbserviceIsolateEntry,
+      _InitializeMessage(_fromIsolateReceivePort.sendPort, _thumbDirectoryPath),
+    );
 
-    final provider = FileImage(File(filePath));
-    _imageCache[songPath] = provider;
-    return provider;
+    Completer<void> isolateReadyCompleter = Completer();
+
+    _fromIsolateReceivePort.listen((dynamic message) {
+      if (message is SendPort) {
+        _toIsolateSendPort = message;
+        _isInitialized = true;
+        if (!isolateReadyCompleter.isCompleted) {
+          isolateReadyCompleter.complete();
+        }
+        debugPrint("ThumbnailGenerator: Isolate connection established.");
+      } else if (message is Map<String, dynamic>) {
+        final response = _IsolateResponse.fromJson(message);
+        final completer = _completers.remove(response.id);
+        if (completer != null) {
+          if (response.error != null) {
+            completer.completeError(Exception(response.error));
+          } else {
+            completer.complete(response.data);
+          }
+        }
+      }
+    });
+    await isolateReadyCompleter.future; // Wait for SendPort from isolate
   }
 
-  Future<LinearGradient?> generateGradient(SongModel song) async {
+  Future<T> _sendRequest<T>(String command, dynamic payload) async {
+    if (!_isInitialized || _toIsolateSendPort == null) {
+      throw Exception(
+          "ThumbnailGenerator is not initialized or isolate connection failed.");
+    }
+    final requestId = (_requestIdCounter++).toString();
+    final completer = Completer<T>();
+    _completers[requestId] = completer;
+
+    _toIsolateSendPort!.send(
+        _IsolateRequest(id: requestId, command: command, payload: payload)
+            .toJson());
+    return completer.future;
+  }
+
+  Future<ImageProvider> getThumbnailProvider(String songPath) async {
+    if (_imageCache.containsKey(songPath)) {
+      return _imageCache.get(songPath)!;
+    }
+
     try {
-      final cachedGradient = _gradientCache.get(song.id!);
-      if (cachedGradient != null) {
-        return cachedGradient;
+      final String? filePath =
+          await _sendRequest<String?>('getThumbnailPath', songPath);
+      ImageProvider provider;
+      if (filePath != null && filePath.isNotEmpty) {
+        provider = FileImage(File(filePath));
+      } else {
+        provider = const AssetImage('assets/images/default_cover.jpg');
       }
-      final image = await ThumbnailGenerator().getOriginCover(song.path);
-      final paletteGenerator =
-          await PaletteGenerator.fromImageProvider(image.image);
-
-      final dominantColor =
-          paletteGenerator.dominantColor?.color ?? Colors.grey[800]!;
-      final vibrantColor =
-          paletteGenerator.vibrantColor?.color ?? dominantColor;
-      final lightVibrantColor =
-          paletteGenerator.lightVibrantColor?.color ?? vibrantColor;
-
-      final res = LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [
-          lightVibrantColor.withOpacity(0.8),
-          vibrantColor.withOpacity(0.8),
-          dominantColor.withOpacity(0.8),
-        ],
-        stops: const [0.0, 0.5, 1.0],
-      );
-      _gradientCache[song.id!] = res;
-      return res;
+      _imageCache.put(songPath, provider);
+      return provider;
     } catch (e) {
-      debugPrint('Error generating gradient: $e');
-      return null;
+      debugPrint('Error getting thumbnail provider for $songPath: $e');
+      return const AssetImage('assets/images/default_cover.jpg');
     }
   }
 
   Future<Image> getOriginCover(String songPath) async {
-    final cachedImage = _oriImageCache.get(songPath);
-    if (cachedImage != null) {
-      return cachedImage;
+    if (_oriImageCache.containsKey(songPath)) {
+      return _oriImageCache.get(songPath)!;
     }
     try {
-      // 提取歌曲封面
-      final tag = await AudioTags.read(songPath);
-      final coverData = tag?.pictures.firstOrNull?.bytes;
-
-      if (coverData == null || coverData.isEmpty) {
-        return Image.asset('assets/images/default_cover.jpg'); // 默认封面
+      final Uint8List? imageData =
+          await _sendRequest<Uint8List?>('getOriginCoverData', songPath);
+      Image image;
+      if (imageData != null && imageData.isNotEmpty) {
+        image = Image.memory(imageData);
+      } else {
+        image = Image.asset('assets/images/default_cover.jpg');
       }
-      // 解码图像
-      final coverImage = await compute(_decodeImage, coverData);
-      _oriImageCache[songPath] = coverImage;
-      // Convert img.Image to Flutter Image widget
-      return coverImage;
+      _oriImageCache.put(songPath, image);
+      return image;
     } catch (e) {
-      print('获取封面失败: $e');
-      return Image.asset('assets/images/default_cover.jpg'); // 默认封面
-    }
-  }
-
-  static Image _decodeImage(Uint8List coverData) {
-    final image = img.decodeImage(coverData);
-    if (image == null) {
+      debugPrint('Error getting origin cover for $songPath: $e');
       return Image.asset('assets/images/default_cover.jpg');
     }
-    return Image.memory(Uint8List.fromList(img.encodePng(image)));
   }
 
-  Map<String, int> _analyzeDominantColor(Uint8List pngBytes) {
-    final image = img.decodeImage(pngBytes);
-    if (image == null) return {'r': 128, 'g': 128, 'b': 128};
-
-    final colorCount = <String, int>{};
-    for (var y = 0; y < image.height; y += 2) {
-      for (var x = 0; x < image.width; x += 2) {
-        final pixel = image.getPixel(x, y); // Pixel 类型
-        final key = '${pixel.r},${pixel.g},${pixel.b}';
-        colorCount[key] = (colorCount[key] ?? 0) + 1;
-      }
-    }
-    final dominantKey =
-        colorCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-    final parts = dominantKey.split(',').map(int.parse).toList();
-    return {'r': parts[0], 'g': parts[1], 'b': parts[2]};
-  }
-
-  Future<void> prefetchInfo(SongModel song) async {
+  Future<LinearGradient?> generateGradient(SongModel song) async {
+    if (song.id == null) return null;
     if (_gradientCache.containsKey(song.id!)) {
-      return; // 已经预加载过
-    }
-    if (song.id == null) {
-      debugPrint('无法预加载信息: song.id为空');
-      return;
+      return _gradientCache.get(song.id!);
     }
 
     try {
-      // 1. 获取并缓存封面图片
-      Image? coverImage;
-      final cachedImage = _oriImageCache.get(song.path);
+      final Map<String, dynamic>? colorData =
+          await _sendRequest<Map<String, dynamic>?>(
+              'getDominantColor', song.path);
+      if (colorData != null) {
+        final r = colorData['r'] as int;
+        final g = colorData['g'] as int;
+        final b = colorData['b'] as int;
+        final dominantColor = Color.fromRGBO(r, g, b, 1.0);
 
-      Uint8List? coverData;
-      if (cachedImage == null) {
-        final tag = await AudioTags.read(song.path);
-        coverData = tag?.pictures.firstOrNull?.bytes;
-        if (coverData == null || coverData.isEmpty) {
-          coverImage = Image.asset('assets/images/default_cover.jpg');
-          _oriImageCache[song.path] = coverImage;
-        } else {
-          coverImage = await compute(_decodeImage, coverData);
-          _oriImageCache[song.path] = coverImage!;
-        }
-      } else {
-        coverImage = cachedImage;
-      }
-
-      // 2. 生成并缓存渐变色（用 compute 分析主色调）
-      if (!_gradientCache.containsKey(song.id!)) {
-        // 取 png 数据
-        Uint8List? pngBytes;
-        if (coverData != null) {
-          pngBytes = coverData;
-        } else if (coverImage is Image && coverImage.image is MemoryImage) {
-          pngBytes = (coverImage.image as MemoryImage).bytes;
-        }
-        if (pngBytes == null) {
-          _gradientCache[song.id!] = null;
-          return;
-        }
-        final rgb = await compute(_analyzeDominantColor, pngBytes);
-        final color = Color.fromRGBO(rgb['r']!, rgb['g']!, rgb['b']!, 1.0);
-        final gradient = LinearGradient(
+        // Simple gradient based on dominant color
+        final res = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            color.withOpacity(0.8),
-            color.withOpacity(0.6),
-            color.withOpacity(0.4),
+            dominantColor.withOpacity(0.8),
+            dominantColor.withOpacity(0.6),
+            dominantColor.withOpacity(0.4),
           ],
           stops: const [0.0, 0.5, 1.0],
         );
-        _gradientCache[song.id!] = gradient;
+        _gradientCache.put(song.id!, res);
+        return res;
       }
+      _gradientCache.put(song.id!, null);
+      return null;
     } catch (e) {
-      debugPrint('预加载歌曲信息失败: ${e.toString()}');
+      debugPrint('Error generating gradient for ${song.title}: $e');
+      _gradientCache.put(song.id!, null);
+      return null;
     }
   }
 
-  /// 获取或生成歌曲封面缩略图（根据歌曲路径）
+  Future<void> prefetchInfo(SongModel song) async {
+    if (song.id == null) {
+      debugPrint('Cannot prefetch: song.id is null');
+      return;
+    }
+    if (_gradientCache.containsKey(song.id!)) {
+      return; // Already prefetched or being processed for gradient
+    }
+
+    try {
+      // This will trigger cache population in the isolate for cover data and dominant color.
+      // And subsequently, if getOriginCover and generateGradient are called,
+      // they will populate the main thread UI caches.
+      await _sendRequest<bool>(
+          'prefetchSongData', {'path': song.path, 'id': song.id});
+      // Optionally, you could immediately fetch and cache UI elements here too,
+      // but it might be better to let them be lazy-loaded by UI components.
+      // For example:
+      // await getOriginCover(song.path);
+      // await generateGradient(song);
+    } catch (e) {
+      debugPrint('Error prefetching info for ${song.title}: $e');
+    }
+  }
+
   Future<String> getThumbnail(String songPath) async {
     try {
-      // 生成缩略图文件名（MD5 哈希）
-      final fileName = _generateFileName(songPath);
-      final thumbDir = await _getThumbnailDirectory();
-      final thumbPath = '${thumbDir.path}/$fileName';
-
-      // 检查缩略图是否已存在
-      if (await File(thumbPath).exists()) {
-        return thumbPath;
-      }
-
-      // 提取歌曲封面
-      final tag = await AudioTags.read(songPath);
-      final coverData = tag?.pictures.firstOrNull?.bytes;
-
-      if (coverData == null || coverData.isEmpty) {
-        return ''; // 无封面，返回空字符串
-      }
-
-      // 解码图像
-      final image = img.decodeImage(coverData);
-      if (image == null) {
-        return ''; // 解码失败
-      }
-
-      // 调整大小
-      final thumbnail = img.copyResize(
-        image,
-        width: _thumbnailSize,
-        height: _thumbnailSize,
-        interpolation: img.Interpolation.nearest,
-      );
-
-      final jpgData = img.encodeJpg(thumbnail);
-
-      // 保存缩略图
-      final thumbFile = File(thumbPath);
-      await thumbFile.writeAsBytes(jpgData);
-
-      return thumbPath;
+      final String? filePath =
+          await _sendRequest<String?>('getThumbnailPath', songPath);
+      return filePath ?? '';
     } catch (e) {
-      print('生成缩略图失败: $e');
+      debugPrint('Error getting thumbnail path for $songPath: $e');
       return '';
     }
   }
 
   Future<void> generateThumbnail(String songPath) async {
     try {
-      // 生成缩略图文件名（MD5 哈希）
-      final fileName = _generateFileName(songPath);
-      final thumbDir = await _getThumbnailDirectory();
-      final thumbPath = '${thumbDir.path}/$fileName';
-
-      // 检查缩略图是否已存在
-      if (await File(thumbPath).exists()) {
-        return;
-      }
-
-      // 提取歌曲封面
-      final tag = await AudioTags.read(songPath);
-      final coverData = tag?.pictures.firstOrNull?.bytes;
-
-      if (coverData == null || coverData.isEmpty) {
-        return;
-      }
-
-      // 解码图像
-      final image = img.decodeImage(coverData);
-      if (image == null) {
-        return; // 解码失败
-      }
-
-      // 调整大小
-      final thumbnail = img.copyResize(
-        image,
-        width: _thumbnailSize,
-        height: _thumbnailSize,
-        interpolation: img.Interpolation.linear,
-      );
-
-      // 转换为 jpg，不支持 webp 格式
-
-      final jpgData = img.encodeJpg(thumbnail, quality: 80);
-
-      // 保存缩略图
-      final thumbFile = File(thumbPath);
-      await thumbFile.writeAsBytes(jpgData);
+      await _sendRequest<bool>('ensureThumbnailExists', songPath);
     } catch (e) {
-      print('生成缩略图失败: $e');
+      print('Failed to ensure thumbnail exists for $songPath: $e');
     }
   }
 
-  /// 获取或生成歌曲封面缩略图（根据歌曲 ID）
   Future<String> getThumbnailById(int songId) async {
     try {
-      // 查询歌曲信息
-      final song = await DatabaseService().getSongById(songId);
-      if (song == null) {
-        return ''; // 歌曲不存在
-      }
-
-      // 使用歌曲路径生成缩略图
+      final song = await DatabaseService()
+          .getSongById(songId); // Assuming DatabaseService is available
+      if (song == null) return '';
       return await getThumbnail(song.path);
     } catch (e) {
-      print('根据 ID 生成缩略图失败: $e');
+      print('Error getting thumbnail by ID $songId: $e');
       return '';
     }
   }
 
-  /// 生成缩略图文件名（MD5 哈希）
+  void close() {
+    if (_toIsolateSendPort != null) {
+      _toIsolateSendPort!
+          .send(_IsolateRequest(id: 'shutdown', command: 'shutdown').toJson());
+    }
+    _isolate?.kill(priority: Isolate.immediate);
+    _isolate = null;
+    _fromIsolateReceivePort.close();
+    _completers.clear();
+    _isInitialized = false;
+    debugPrint("ThumbnailGenerator: Isolate closed.");
+  }
+}
+
+/// Message class for initialization
+class _InitializeMessage {
+  final SendPort sendPort;
+  final String thumbDirPath;
+  _InitializeMessage(this.sendPort, this.thumbDirPath);
+}
+
+/// Isolate Entry Point
+void _justMusicaThumbserviceIsolateEntry(_InitializeMessage initMessage) async {
+  final mainToIsolateReceivePort = ReceivePort();
+  final isolateService = JustMusicaThumbservice(initMessage.thumbDirPath);
+
+  // Send the SendPort for this isolate back to the main isolate
+  initMessage.sendPort.send(mainToIsolateReceivePort.sendPort);
+
+  await for (final dynamic message in mainToIsolateReceivePort) {
+    if (message is Map<String, dynamic>) {
+      final request = _IsolateRequest.fromJson(message);
+
+      if (request.command == 'shutdown') {
+        mainToIsolateReceivePort.close();
+        isolateService.dispose();
+        debugPrint("JustMusicaThumbservice: Shutting down.");
+        break;
+      }
+
+      dynamic resultData;
+      String? errorMsg;
+
+      try {
+        switch (request.command) {
+          case 'getThumbnailPath':
+            resultData = await isolateService
+                .getThumbnailPath(request.payload as String);
+            break;
+          case 'getOriginCoverData':
+            resultData = await isolateService
+                .getOriginCoverData(request.payload as String);
+            break;
+          case 'getDominantColor':
+            resultData = await isolateService
+                .getDominantColor(request.payload as String);
+            break;
+          case 'ensureThumbnailExists':
+            await isolateService
+                .ensureThumbnailExists(request.payload as String);
+            resultData = true; // Indicate success
+            break;
+          case 'prefetchSongData':
+            // Payload might be a map {'path': String, 'id': int}
+            // For now, just use path for prefetching cover and dominant color.
+            // The id might be used if the isolate needed to cache by id directly.
+            final payloadMap = request.payload as Map<String, dynamic>;
+            final songPath = payloadMap['path'] as String;
+            await isolateService.getOriginCoverData(songPath); // Prefetch cover
+            await isolateService.getDominantColor(songPath); // Prefetch color
+            resultData = true;
+            break;
+          default:
+            errorMsg = 'Unknown command: ${request.command}';
+        }
+      } catch (e, s) {
+        debugPrint(
+            "Error in JustMusicaThumbservice (${request.command}): $e\n$s");
+        errorMsg = e.toString();
+      }
+      initMessage.sendPort.send(
+          _IsolateResponse(id: request.id, data: resultData, error: errorMsg)
+              .toJson());
+    }
+  }
+  Isolate.exit();
+}
+
+/// JustMusicaThumbservice (Runs in a separate Isolate)
+/// Handles all actual image processing and file I/O.
+/// Manages its own caches for raw data.
+class JustMusicaThumbservice {
+  final String _thumbDirectoryPath;
+
+  static const int _thumbnailSize = 100;
+  static const int _rawThumbnailPathCacheCapacity = 200;
+  static const int _rawOriginalCoverCacheCapacity = 20;
+  static const int _rawDominantColorCacheCapacity = 50;
+
+  // Caches for raw/processed data within the isolate
+  final _thumbnailPathCache =
+      LRUCache<String, String?>(_rawThumbnailPathCacheCapacity);
+  final _originalCoverDataCache =
+      LRUCache<String, Uint8List?>(_rawOriginalCoverCacheCapacity);
+  final _dominantColorCache =
+      LRUCache<String, Map<String, int>?>(_rawDominantColorCacheCapacity);
+
+  JustMusicaThumbservice(this._thumbDirectoryPath);
+
   String _generateFileName(String songPath) {
     final bytes = utf8.encode(songPath);
     final hash = md5.convert(bytes).toString();
-    return '$hash.webp';
+    return '$hash.jpg'; // Changed to jpg as per encodeJpg usage
   }
 
-  /// 获取缩略图存储目录
-  Future<Directory> _getThumbnailDirectory() async {
-    final docDir = await getApplicationDocumentsDirectory();
-    final thumbDir = Directory('${docDir.path}/JUSTMUSIC/thumbs');
-    if (!await thumbDir.exists()) {
-      await thumbDir.create(recursive: true);
+  static Uint8List? _decodeAndEncodeImage(Uint8List coverData,
+      {int? width, int? height, int quality = 80}) {
+    final image = img.decodeImage(coverData);
+    if (image == null) return null;
+
+    img.Image resizedImage;
+    if (width != null && height != null) {
+      resizedImage = img.copyResize(
+        image,
+        width: width,
+        height: height,
+        interpolation: img.Interpolation.linear,
+      );
+    } else {
+      resizedImage = image;
     }
-    return thumbDir;
+    return Uint8List.fromList(img.encodeJpg(resizedImage, quality: quality));
+  }
+
+  static Map<String, int>? _analyzeDominantColor(Uint8List imageBytes) {
+    final image = img.decodeImage(imageBytes);
+    if (image == null) return {'r': 128, 'g': 128, 'b': 128}; // Default grey
+
+    final colorCount = <int, int>{}; // Using combined int for color key
+    int r, g, b;
+
+    // Downsample for performance
+    final step = (image.width * image.height > 10000)
+        ? (image.width > 100 ? image.width ~/ 100 : 2)
+        : 1;
+
+    for (var y = 0; y < image.height; y += step) {
+      for (var x = 0; x < image.width; x += step) {
+        final pixel = image.getPixel(x, y);
+        r = pixel.r.toInt();
+        g = pixel.g.toInt();
+        b = pixel.b.toInt();
+        // Create a single integer key for the color
+        final key = (r << 16) | (g << 8) | b;
+        colorCount[key] = (colorCount[key] ?? 0) + 1;
+      }
+    }
+
+    if (colorCount.isEmpty) return {'r': 128, 'g': 128, 'b': 128};
+
+    final dominantIntKey =
+        colorCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+    return {
+      'r': (dominantIntKey >> 16) & 0xFF,
+      'g': (dominantIntKey >> 8) & 0xFF,
+      'b': dominantIntKey & 0xFF
+    };
+  }
+
+  Future<String?> getThumbnailPath(String songPath) async {
+    if (_thumbnailPathCache.containsKey(songPath)) {
+      final cached = _thumbnailPathCache.get(songPath);
+      // Verify file still exists, else regenerate
+      if (cached != null && await File(cached).exists()) {
+        return cached;
+      }
+    }
+
+    final fileName = _generateFileName(songPath);
+    final thumbPath = '$_thumbDirectoryPath/$fileName';
+
+    if (await File(thumbPath).exists()) {
+      _thumbnailPathCache.put(songPath, thumbPath);
+      return thumbPath;
+    }
+
+    try {
+      final tag = await AudioTags.read(songPath);
+      final coverData = tag?.pictures.firstOrNull?.bytes;
+
+      if (coverData == null || coverData.isEmpty) {
+        _thumbnailPathCache.put(songPath, null); // Cache null if no cover
+        return null;
+      }
+
+      // Using compute for decoding and resizing might be beneficial for very large images,
+      // but since we are already in an isolate, direct call is fine.
+      final jpgData = _decodeAndEncodeImage(coverData,
+          width: _thumbnailSize, height: _thumbnailSize, quality: 80);
+
+      if (jpgData == null) {
+        _thumbnailPathCache.put(songPath, null);
+        return null;
+      }
+
+      final thumbFile = File(thumbPath);
+      await thumbFile.writeAsBytes(jpgData);
+      _thumbnailPathCache.put(songPath, thumbPath);
+      return thumbPath;
+    } catch (e) {
+      debugPrint('Isolate: Failed to generate thumbnail for $songPath: $e');
+      _thumbnailPathCache.put(songPath, null); // Cache null on error
+      return null;
+    }
+  }
+
+  Future<void> ensureThumbnailExists(String songPath) async {
+    // This method is essentially a fire-and-forget version of getThumbnailPath
+    // if we don't care about the immediate result, but it's good practice
+    // to have it populate the cache.
+    await getThumbnailPath(songPath);
+  }
+
+  Future<Uint8List?> getOriginCoverData(String songPath) async {
+    if (_originalCoverDataCache.containsKey(songPath)) {
+      return _originalCoverDataCache.get(songPath);
+    }
+    try {
+      final tag = await AudioTags.read(songPath);
+      final coverData = tag?.pictures.firstOrNull?.bytes;
+
+      if (coverData == null || coverData.isEmpty) {
+        _originalCoverDataCache.put(songPath, null);
+        return null;
+      }
+      // We could re-encode to PNG or JPG here if we want consistency, or return raw.
+      // For now, let's assume the raw embedded data is what we want.
+      // If it needs to be displayed as Image.memory, it should be a valid format (PNG, JPG, GIF etc.)
+      // The _decodeImage in original code was converting to PNG.
+      // Let's decode then re-encode to PNG to ensure it's displayable and consistent.
+      final image = img.decodeImage(coverData);
+      if (image == null) {
+        _originalCoverDataCache.put(songPath, null);
+        return null;
+      }
+      final pngBytes = Uint8List.fromList(img.encodePng(image));
+      _originalCoverDataCache.put(songPath, pngBytes);
+      return pngBytes;
+    } catch (e) {
+      debugPrint('Isolate: Failed to get origin cover for $songPath: $e');
+      _originalCoverDataCache.put(songPath, null);
+      return null;
+    }
+  }
+
+  Future<Map<String, int>?> getDominantColor(String songPath) async {
+    if (_dominantColorCache.containsKey(songPath)) {
+      return _dominantColorCache.get(songPath);
+    }
+    try {
+      final coverData = await getOriginCoverData(
+          songPath); // Leverage existing method and its cache
+      if (coverData == null || coverData.isEmpty) {
+        _dominantColorCache.put(songPath, null);
+        return null;
+      }
+      // _analyzeDominantColor expects image bytes (e.g., PNG or JPG).
+      // getOriginCoverData already returns PNG bytes.
+      final Map<String, int>? colorMap = _analyzeDominantColor(coverData);
+      _dominantColorCache.put(songPath, colorMap);
+      return colorMap;
+    } catch (e) {
+      debugPrint(
+          'Isolate: Failed to generate dominant color for $songPath: $e');
+      _dominantColorCache.put(songPath, null);
+      return null;
+    }
+  }
+
+  void dispose() {
+    // Clear caches if needed, though the isolate is being terminated.
+    _thumbnailPathCache.clear();
+    _originalCoverDataCache.clear();
+    _dominantColorCache.clear();
+    debugPrint("JustMusicaThumbservice resources disposed.");
   }
 }
