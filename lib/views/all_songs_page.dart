@@ -96,9 +96,9 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
 
   Future<void> _importSongs() async {
     final result = await FilePicker.platform.pickFiles(
-      allowMultiple: true,
-      type: FileType.audio,
-    );
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: ['mp3', 'wav', 'aac', 'ogg', 'm4a', 'flac']);
     if (result != null) {
       final paths =
           result.paths.where((path) => path != null).cast<String>().toList();
