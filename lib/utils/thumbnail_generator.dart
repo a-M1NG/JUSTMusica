@@ -10,7 +10,8 @@ import 'package:flutter/material.dart';
 // Assuming 'package:flutter/services.dart'; is still needed for rootBundle if AssetImages are used extensively for defaults.
 import 'package:image/image.dart' as img;
 import 'package:just_musica/models/song_model.dart'; // Assuming this model exists
-// import 'package:palette_generator/palette_generator.dart'; // PaletteGenerator is heavy, using simpler dominant color for now
+// palette_generator is not used directly in the isolate in this solution to keep it pure Dart.
+// If you want to use PaletteGenerator, it would typically run on the main thread with ImageProvider.
 import 'package:path_provider/path_provider.dart';
 import 'package:audiotags/audiotags.dart';
 import '../services/database_service.dart'; // Assuming this service exists
@@ -232,31 +233,60 @@ class ThumbnailGenerator {
     }
 
     try {
-      final Map<String, dynamic>? colorData =
+      // Request enhanced palette data (dominant, vibrant, lightVibrant RGB maps)
+      final Map<String, dynamic>? paletteData =
           await _sendRequest<Map<String, dynamic>?>(
-              'getDominantColor', song.path);
-      if (colorData != null) {
-        final r = colorData['r'] as int;
-        final g = colorData['g'] as int;
-        final b = colorData['b'] as int;
-        final dominantColor = Color.fromRGBO(r, g, b, 1.0);
+              'getEnhancedPaletteData', song.path);
 
-        // Simple gradient based on dominant color
-        final res = LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            dominantColor.withOpacity(0.8),
-            dominantColor.withOpacity(0.6),
-            dominantColor.withOpacity(0.4),
-          ],
-          stops: const [0.0, 0.5, 1.0],
-        );
-        _gradientCache.put(song.id!, res);
-        return res;
+      if (paletteData == null) {
+        _gradientCache.put(song.id!, null);
+        return null;
       }
-      _gradientCache.put(song.id!, null);
-      return null;
+
+      // Helper to parse color from map and provide a fallback
+      Color parseColor(
+          Map<String, dynamic>? colorMapData, Color fallbackColor) {
+        if (colorMapData == null) return fallbackColor;
+        final r = colorMapData['r'] as int?;
+        final g = colorMapData['g'] as int?;
+        final b = colorMapData['b'] as int?;
+        if (r != null && g != null && b != null) {
+          return Color.fromRGBO(r, g, b, 1.0);
+        }
+        return fallbackColor;
+      }
+
+      final defaultDominantColor = Colors.grey[800]!;
+
+      final dominantColorMap = paletteData['dominant'] as Map<String, dynamic>?;
+      final Color dominantColor =
+          parseColor(dominantColorMap, defaultDominantColor);
+
+      final vibrantColorMap = paletteData['vibrant'] as Map<String, dynamic>?;
+      final Color vibrantColor =
+          parseColor(vibrantColorMap, dominantColor); // Fallback to dominant
+
+      final lightVibrantColorMap =
+          paletteData['lightVibrant'] as Map<String, dynamic>?;
+      final Color lightVibrantColor =
+          parseColor(lightVibrantColorMap, vibrantColor); // Fallback to vibrant
+
+      final res = LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [
+          lightVibrantColor.withOpacity(0.8),
+          vibrantColor.withOpacity(0.8),
+          dominantColor.withOpacity(0.8),
+        ],
+        stops: const [
+          0.0,
+          0.5,
+          1.0
+        ], // Ensure stops match colors length if not evenly distributed
+      );
+      _gradientCache.put(song.id!, res);
+      return res;
     } catch (e) {
       debugPrint('Error generating gradient for ${song.title}: $e');
       _gradientCache.put(song.id!, null);
@@ -269,21 +299,21 @@ class ThumbnailGenerator {
       debugPrint('Cannot prefetch: song.id is null');
       return;
     }
+    // Check if gradient is already cached, implying dependent data might also be cached or in process.
     if (_gradientCache.containsKey(song.id!)) {
-      return; // Already prefetched or being processed for gradient
+      return;
     }
 
     try {
-      // This will trigger cache population in the isolate for cover data and dominant color.
-      // And subsequently, if getOriginCover and generateGradient are called,
-      // they will populate the main thread UI caches.
+      // This request will trigger the isolate to cache original cover data
+      // and the new enhanced palette data.
       await _sendRequest<bool>(
           'prefetchSongData', {'path': song.path, 'id': song.id});
       // Optionally, you could immediately fetch and cache UI elements here too,
       // but it might be better to let them be lazy-loaded by UI components.
-      // For example:
-      // await getOriginCover(song.path);
-      // await generateGradient(song);
+      // Example:
+      // if (!_oriImageCache.containsKey(song.path)) await getOriginCover(song.path);
+      // if (!_gradientCache.containsKey(song.id!)) await generateGradient(song);
     } catch (e) {
       debugPrint('Error prefetching info for ${song.title}: $e');
     }
@@ -304,7 +334,8 @@ class ThumbnailGenerator {
     try {
       await _sendRequest<bool>('ensureThumbnailExists', songPath);
     } catch (e) {
-      print('Failed to ensure thumbnail exists for $songPath: $e');
+      // Use debugPrint for consistency, or a proper logger
+      debugPrint('Failed to ensure thumbnail exists for $songPath: $e');
     }
   }
 
@@ -315,7 +346,8 @@ class ThumbnailGenerator {
       if (song == null) return '';
       return await getThumbnail(song.path);
     } catch (e) {
-      print('Error getting thumbnail by ID $songId: $e');
+      // Use debugPrint for consistency
+      debugPrint('Error getting thumbnail by ID $songId: $e');
       return '';
     }
   }
@@ -373,9 +405,9 @@ void _justMusicaThumbserviceIsolateEntry(_InitializeMessage initMessage) async {
             resultData = await isolateService
                 .getOriginCoverData(request.payload as String);
             break;
-          case 'getDominantColor':
+          case 'getEnhancedPaletteData': // Updated command
             resultData = await isolateService
-                .getDominantColor(request.payload as String);
+                .getEnhancedPaletteData(request.payload as String);
             break;
           case 'ensureThumbnailExists':
             await isolateService
@@ -383,13 +415,11 @@ void _justMusicaThumbserviceIsolateEntry(_InitializeMessage initMessage) async {
             resultData = true; // Indicate success
             break;
           case 'prefetchSongData':
-            // Payload might be a map {'path': String, 'id': int}
-            // For now, just use path for prefetching cover and dominant color.
-            // The id might be used if the isolate needed to cache by id directly.
             final payloadMap = request.payload as Map<String, dynamic>;
             final songPath = payloadMap['path'] as String;
-            await isolateService.getOriginCoverData(songPath); // Prefetch cover
-            await isolateService.getDominantColor(songPath); // Prefetch color
+            // Prefetch cover and the new enhanced palette data
+            await isolateService.getOriginCoverData(songPath);
+            await isolateService.getEnhancedPaletteData(songPath);
             resultData = true;
             break;
           default:
@@ -417,22 +447,25 @@ class JustMusicaThumbservice {
   static const int _thumbnailSize = 100;
   static const int _rawThumbnailPathCacheCapacity = 200;
   static const int _rawOriginalCoverCacheCapacity = 20;
-  static const int _rawDominantColorCacheCapacity = 50;
+  static const int _rawEnhancedPaletteDataCacheCapacity =
+      50; // Updated cache name
 
   // Caches for raw/processed data within the isolate
   final _thumbnailPathCache =
       LRUCache<String, String?>(_rawThumbnailPathCacheCapacity);
   final _originalCoverDataCache =
       LRUCache<String, Uint8List?>(_rawOriginalCoverCacheCapacity);
-  final _dominantColorCache =
-      LRUCache<String, Map<String, int>?>(_rawDominantColorCacheCapacity);
+  // Updated cache for enhanced palette data
+  final _enhancedPaletteDataCache =
+      LRUCache<String, Map<String, Map<String, int>?>?>(
+          _rawEnhancedPaletteDataCacheCapacity);
 
   JustMusicaThumbservice(this._thumbDirectoryPath);
 
   String _generateFileName(String songPath) {
     final bytes = utf8.encode(songPath);
     final hash = md5.convert(bytes).toString();
-    return '$hash.jpg'; // Changed to jpg as per encodeJpg usage
+    return '$hash.jpg';
   }
 
   static Uint8List? _decodeAndEncodeImage(Uint8List coverData,
@@ -454,46 +487,143 @@ class JustMusicaThumbservice {
     return Uint8List.fromList(img.encodeJpg(resizedImage, quality: quality));
   }
 
-  static Map<String, int>? _analyzeDominantColor(Uint8List imageBytes) {
+  // Replaces _analyzeDominantColor with a more sophisticated version
+  static Map<String, Map<String, int>?> _analyzeEnhancedPaletteColors(
+      Uint8List imageBytes) {
     final image = img.decodeImage(imageBytes);
-    if (image == null) return {'r': 128, 'g': 128, 'b': 128}; // Default grey
+    Map<String, int> defaultDominant = {
+      'r': 128,
+      'g': 128,
+      'b': 128
+    }; // Default grey
+    Map<String, int> defaultVibrant = {
+      'r': 100,
+      'g': 100,
+      'b': 150
+    }; // Default muted blue
+    Map<String, int> defaultLightVibrant = {
+      'r': 150,
+      'g': 150,
+      'b': 200
+    }; // Default lighter blue
 
-    final colorCount = <int, int>{}; // Using combined int for color key
+    if (image == null) {
+      return {
+        "dominant": defaultDominant,
+        "vibrant": defaultVibrant,
+        "lightVibrant": defaultLightVibrant,
+      };
+    }
+
+    final colorCount = <int, int>{};
     int r, g, b;
 
-    // Downsample for performance
+    // Downsample for performance, consistent with previous dominant color logic
     final step = (image.width * image.height > 10000)
-        ? (image.width > 100 ? image.width ~/ 100 : 2)
+        ? (image.width > 100
+            ? image.width ~/ 100
+            : (image.width > 10
+                ? image.width ~/ 10
+                : 2)) // Avoid division by zero or too small step
         : 1;
 
+    int analyzedPixelCount = 0;
     for (var y = 0; y < image.height; y += step) {
       for (var x = 0; x < image.width; x += step) {
         final pixel = image.getPixel(x, y);
         r = pixel.r.toInt();
         g = pixel.g.toInt();
         b = pixel.b.toInt();
-        // Create a single integer key for the color
         final key = (r << 16) | (g << 8) | b;
         colorCount[key] = (colorCount[key] ?? 0) + 1;
+        analyzedPixelCount++;
       }
     }
 
-    if (colorCount.isEmpty) return {'r': 128, 'g': 128, 'b': 128};
+    Map<String, int> dominantColorMap;
+    if (colorCount.isEmpty || analyzedPixelCount == 0) {
+      dominantColorMap = defaultDominant;
+    } else {
+      final dominantIntKey =
+          colorCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+      dominantColorMap = {
+        'r': (dominantIntKey >> 16) & 0xFF,
+        'g': (dominantIntKey >> 8) & 0xFF,
+        'b': dominantIntKey & 0xFF
+      };
+    }
 
-    final dominantIntKey =
-        colorCount.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+    // --- Placeholder logic for Vibrant and LightVibrant ---
+    // This is a very simplified approach. True palette generation is more complex,
+    // involving color spaces like HSL/HSV, saturation, brightness, and clustering.
+    Map<String, int> vibrantColorMap;
+    Map<String, int> lightVibrantColorMap;
+
+    // Attempt to find a "vibrant" color by slightly shifting dominant and increasing saturation (conceptually)
+    // If dominant is greyscale, pick a default vibrant.
+    if (dominantColorMap['r'] == dominantColorMap['g'] &&
+        dominantColorMap['g'] == dominantColorMap['b']) {
+      vibrantColorMap = defaultVibrant;
+    } else {
+      vibrantColorMap = {
+        'r': (dominantColorMap['r']! * 0.7 + Colors.blue.red * 0.3)
+            .toInt()
+            .clamp(0, 255),
+        'g': (dominantColorMap['g']! * 0.7 + Colors.blue.green * 0.3)
+            .toInt()
+            .clamp(0, 255),
+        'b': (dominantColorMap['b']! * 0.7 + Colors.blue.blue * 0.3)
+            .toInt()
+            .clamp(0, 255),
+      };
+      // Ensure it's reasonably different from dominant
+      if (((vibrantColorMap['r']! - dominantColorMap['r']!).abs() < 30) &&
+          ((vibrantColorMap['g']! - dominantColorMap['g']!).abs() < 30) &&
+          ((vibrantColorMap['b']! - dominantColorMap['b']!).abs() < 30)) {
+        vibrantColorMap = {
+          'r': (dominantColorMap['r']! + 40) % 256,
+          'g': (dominantColorMap['g']! - 20 + 256) % 256,
+          'b': dominantColorMap['b']!
+        };
+      }
+    }
+
+    // Attempt for a "light vibrant" color - often a lighter, desaturated version of vibrant or dominant
+    if (dominantColorMap['r'] == dominantColorMap['g'] &&
+        dominantColorMap['g'] == dominantColorMap['b'] &&
+        dominantColorMap['r']! > 200) {
+      // if dominant is very light grey
+      lightVibrantColorMap = {'r': 220, 'g': 220, 'b': 250}; // A light default
+    } else {
+      lightVibrantColorMap = {
+        'r': (dominantColorMap['r']! + 100)
+            .clamp(0, 255), // Lighter version of dominant
+        'g': (dominantColorMap['g']! + 100).clamp(0, 255),
+        'b': (dominantColorMap['b']! + 120)
+            .clamp(0, 255), // Slightly bluer light
+      };
+      // Ensure it's different from vibrant and dominant
+      if (((lightVibrantColorMap['r']! - vibrantColorMap['r']!).abs() < 30) &&
+          ((lightVibrantColorMap['g']! - vibrantColorMap['g']!).abs() < 30)) {
+        lightVibrantColorMap = {
+          'r': vibrantColorMap['r']!,
+          'g': (vibrantColorMap['g']! + 50).clamp(0, 255),
+          'b': (vibrantColorMap['b']! + 50).clamp(0, 255)
+        };
+      }
+    }
+    // --- End of placeholder logic ---
 
     return {
-      'r': (dominantIntKey >> 16) & 0xFF,
-      'g': (dominantIntKey >> 8) & 0xFF,
-      'b': dominantIntKey & 0xFF
+      "dominant": dominantColorMap,
+      "vibrant": vibrantColorMap,
+      "lightVibrant": lightVibrantColorMap,
     };
   }
 
   Future<String?> getThumbnailPath(String songPath) async {
     if (_thumbnailPathCache.containsKey(songPath)) {
       final cached = _thumbnailPathCache.get(songPath);
-      // Verify file still exists, else regenerate
       if (cached != null && await File(cached).exists()) {
         return cached;
       }
@@ -512,12 +642,10 @@ class JustMusicaThumbservice {
       final coverData = tag?.pictures.firstOrNull?.bytes;
 
       if (coverData == null || coverData.isEmpty) {
-        _thumbnailPathCache.put(songPath, null); // Cache null if no cover
+        _thumbnailPathCache.put(songPath, null);
         return null;
       }
 
-      // Using compute for decoding and resizing might be beneficial for very large images,
-      // but since we are already in an isolate, direct call is fine.
       final jpgData = _decodeAndEncodeImage(coverData,
           width: _thumbnailSize, height: _thumbnailSize, quality: 80);
 
@@ -532,15 +660,12 @@ class JustMusicaThumbservice {
       return thumbPath;
     } catch (e) {
       debugPrint('Isolate: Failed to generate thumbnail for $songPath: $e');
-      _thumbnailPathCache.put(songPath, null); // Cache null on error
+      _thumbnailPathCache.put(songPath, null);
       return null;
     }
   }
 
   Future<void> ensureThumbnailExists(String songPath) async {
-    // This method is essentially a fire-and-forget version of getThumbnailPath
-    // if we don't care about the immediate result, but it's good practice
-    // to have it populate the cache.
     await getThumbnailPath(songPath);
   }
 
@@ -556,16 +681,13 @@ class JustMusicaThumbservice {
         _originalCoverDataCache.put(songPath, null);
         return null;
       }
-      // We could re-encode to PNG or JPG here if we want consistency, or return raw.
-      // For now, let's assume the raw embedded data is what we want.
-      // If it needs to be displayed as Image.memory, it should be a valid format (PNG, JPG, GIF etc.)
-      // The _decodeImage in original code was converting to PNG.
-      // Let's decode then re-encode to PNG to ensure it's displayable and consistent.
+
       final image = img.decodeImage(coverData);
       if (image == null) {
         _originalCoverDataCache.put(songPath, null);
         return null;
       }
+      // Encode to PNG for consistency and because Image.memory handles it well.
       final pngBytes = Uint8List.fromList(img.encodePng(image));
       _originalCoverDataCache.put(songPath, pngBytes);
       return pngBytes;
@@ -576,35 +698,37 @@ class JustMusicaThumbservice {
     }
   }
 
-  Future<Map<String, int>?> getDominantColor(String songPath) async {
-    if (_dominantColorCache.containsKey(songPath)) {
-      return _dominantColorCache.get(songPath);
+  // Updated method to get enhanced palette data
+  Future<Map<String, Map<String, int>?>?> getEnhancedPaletteData(
+      String songPath) async {
+    if (_enhancedPaletteDataCache.containsKey(songPath)) {
+      return _enhancedPaletteDataCache.get(songPath);
     }
     try {
       final coverData = await getOriginCoverData(
           songPath); // Leverage existing method and its cache
       if (coverData == null || coverData.isEmpty) {
-        _dominantColorCache.put(songPath, null);
+        _enhancedPaletteDataCache.put(songPath, null);
         return null;
       }
-      // _analyzeDominantColor expects image bytes (e.g., PNG or JPG).
-      // getOriginCoverData already returns PNG bytes.
-      final Map<String, int>? colorMap = _analyzeDominantColor(coverData);
-      _dominantColorCache.put(songPath, colorMap);
-      return colorMap;
+
+      // Use the new analysis method
+      final Map<String, Map<String, int>?>? paletteMap =
+          _analyzeEnhancedPaletteColors(coverData);
+      _enhancedPaletteDataCache.put(songPath, paletteMap);
+      return paletteMap;
     } catch (e) {
       debugPrint(
-          'Isolate: Failed to generate dominant color for $songPath: $e');
-      _dominantColorCache.put(songPath, null);
+          'Isolate: Failed to generate enhanced palette for $songPath: $e');
+      _enhancedPaletteDataCache.put(songPath, null);
       return null;
     }
   }
 
   void dispose() {
-    // Clear caches if needed, though the isolate is being terminated.
     _thumbnailPathCache.clear();
     _originalCoverDataCache.clear();
-    _dominantColorCache.clear();
+    _enhancedPaletteDataCache.clear(); // Clear the new cache
     debugPrint("JustMusicaThumbservice resources disposed.");
   }
 }
