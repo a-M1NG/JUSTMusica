@@ -85,12 +85,22 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       if (lowerCaseQuery.isEmpty) {
         _displayedSongs = List.from(loadedSongs);
       } else {
+        // Use a set to avoid duplicates
+        final Set<int> seenIds = {};
         _displayedSongs = loadedSongs.where((song) {
-          return song.title!.toLowerCase().contains(lowerCaseQuery);
+          final titleMatch =
+              song.title?.toLowerCase().contains(lowerCaseQuery) ?? false;
+          final artistMatch =
+              song.artist?.toLowerCase().contains(lowerCaseQuery) ?? false;
+          final isMatch = titleMatch || artistMatch;
+          if (isMatch && song.id != null && !seenIds.contains(song.id)) {
+            seenIds.add(song.id!);
+            return true;
+          }
+          return false;
         }).toList();
       }
       // When a search is performed, multi-selection should be reset
-      // as the context of selectable items has changed.
       selectedSongIds.clear();
       _isSelectAll = false;
     });
@@ -261,7 +271,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                 color:
                     appBarForegroundColor), // Style for the actual input text
             decoration: InputDecoration(
-              hintText: '搜索歌曲标题...',
+              hintText: '按标题和歌手搜索歌曲...',
               hintStyle: TextStyle(
                 // Make hint color a semi-transparent version of the AppBar's foreground color
                 color: appBarForegroundColor.withOpacity(0.6),
