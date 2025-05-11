@@ -142,7 +142,6 @@ class MainPageState extends State<MainPage> {
                     selectedIndex: _selectedIndex,
                     onItemTapped: _onNavItemTapped,
                     playlistService: _playlistService!,
-                    favoritesService: _favoritesService!,
                     playbackService: playbackService,
                     onPlaylistsChanged: _updatePlaylists,
                   ),
