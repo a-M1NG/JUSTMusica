@@ -1,27 +1,24 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:just_musica/services/database_service.dart';
 import '../services/playlist_service.dart';
 import '../models/playlist_model.dart';
-import '../views/playlist_detail_page.dart';
-import '../services/favorites_service.dart';
-import '../views/setting_page.dart';
 import '../services/playback_service.dart';
 import '../utils/tools.dart';
+import 'package:just_musica/utils/thumbnail_generator.dart';
 
 class NavigationBarWidget extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
   final PlaylistService playlistService;
-  final FavoritesService favoritesService;
   final PlaybackService playbackService;
   final Function() onPlaylistsChanged;
+
   const NavigationBarWidget({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
     required this.playlistService,
-    required this.favoritesService,
     required this.playbackService,
     required this.onPlaylistsChanged,
   });
@@ -33,10 +30,28 @@ class NavigationBarWidget extends StatefulWidget {
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   bool _playlistsExpanded = true;
   bool _isHovering = false;
-  int lastIndex = 4;
+  int _lastIndexForSettings = 4; // Initial base index for settings
+  late Future<List<PlaylistModel>> _playlistsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlaylists();
+  }
+
+  void _loadPlaylists() {
+    _playlistsFuture = widget.playlistService.getPlaylists();
+  }
+
+  void _refreshPlaylists() {
+    setState(() {
+      _loadPlaylists(); // Get a new future to refresh the list
+    });
+    widget.onPlaylistsChanged(); // Notify parent about the change
+  }
+
   @override
   Widget build(BuildContext context) {
-    // debugPrint("curr nav bar color: ${Theme.of(context).primaryColor}");
     var theme = Theme.of(context);
     final bool isDarkMode = theme.brightness == Brightness.dark;
     return Container(
@@ -63,9 +78,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
               ),
             ),
           ),
-          // const Spacer(),
-          // _buildSettingsButton(context),
-          _buildNavItem(lastIndex, '设置', Icons.settings),
+          _buildNavItem(_lastIndexForSettings, '设置', Icons.settings),
         ],
       ),
     );
@@ -82,19 +95,6 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
           isDarkMode ? Colors.white.withAlpha(77) : Colors.grey.withAlpha(51),
       selectedTileColor:
           isDarkMode ? Colors.white.withAlpha(77) : Colors.grey.withAlpha(51),
-    );
-  }
-
-  Widget _buildSettingsButton(BuildContext context) {
-    return ListTile(
-      leading: Icon(Icons.settings, size: 24, color: Colors.grey),
-      title: const Text('设置'),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const SettingsPage()),
-        );
-      },
     );
   }
 
@@ -128,40 +128,59 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
           ],
         ),
         children: [
-          // 这里调用后端接口获取收藏夹列表
           FutureBuilder<List<PlaylistModel>>(
-            future: widget.playlistService.getPlaylists(),
+            future: _playlistsFuture,
             builder: (context, snapshot) {
-              if (!snapshot.hasData) return const SizedBox();
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.all(8.0),
+                  child: Center(
+                      child: CircularProgressIndicator(
+                    strokeWidth: 2.0,
+                  )),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('加载错误: ${snapshot.error}'));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _lastIndexForSettings = 4; // Base index if no playlists
+                    });
+                  }
+                });
+                return const ListTile(
+                    title: Center(
+                        child: Text("暂无收藏夹",
+                            style: TextStyle(fontStyle: FontStyle.italic))));
+              }
               final playlists = snapshot.data!;
-              lastIndex = 4 + playlists.length;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() {
+                    _lastIndexForSettings = 4 + playlists.length;
+                  });
+                }
+              });
               return Column(
                 children: playlists.asMap().entries.map((entry) {
                   final i = entry.key;
                   final playlist = entry.value;
-                  return GestureDetector(
+                  return PlaylistItemWidget(
+                    // Use a unique key for each playlist item to preserve state
+                    key: ValueKey(playlist.id ??
+                        playlist
+                            .name), // Ensure playlist.id is available and unique
+                    playlist: playlist,
+                    onTap: () {
+                      widget.onItemTapped(4 + i); // Index for playlist item
+                    },
+                    playlistService: widget.playlistService,
                     onSecondaryTapDown: (details) => _showContextMenu(
                         context, details.globalPosition, playlist),
-                    child: ListTile(
-                      leading: playlist.coverPath != null
-                          ? Image.file(File(playlist.coverPath!),
-                              width: 40, height: 40)
-                          : const Icon(Icons.music_note),
-                      title: Text(playlist.name),
-                      onTap: () {
-                        // 跳转到具体收藏夹页面
-                        widget.onItemTapped(4 + i);
-                        // Navigator.push(
-                        //   context,
-                        //   MaterialPageRoute(
-                        //       builder: (_) => PlaylistDetailPage(
-                        //           playlist: playlist,
-                        //           playlistService: widget.playlistService,
-                        //           favoritesService: widget.favoritesService,
-                        //           playbackService: widget.playbackService)),
-                        // );
-                      },
-                    ),
                   );
                 }).toList(),
               );
@@ -176,73 +195,69 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       BuildContext context, Offset position, PlaylistModel playlist) {
     final RenderBox overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
-    const double menuHeightEstimate = 100.0; // 估算菜单高度，可以根据实际菜单项调整
-
-    // 计算菜单的顶部位置，使其出现在点击位置的上方
+    const double menuHeightEstimate = 100.0;
     double top = position.dy - menuHeightEstimate;
     double left = position.dx;
 
-    // 确保菜单不会超出屏幕顶部
-    if (top < 0) {
-      top = position.dy; // 如果超出顶部，则显示在点击位置下方
-    }
+    if (top < 0) top = position.dy;
 
-    // 确保菜单不会超出屏幕右侧
     final screenWidth = overlay.size.width;
-    const double menuWidthEstimate = 150.0; // 估算菜单宽度，可以根据实际调整
+    const double menuWidthEstimate = 150.0;
     if (left + menuWidthEstimate > screenWidth) {
       left = screenWidth - menuWidthEstimate;
     }
-
-    // 创建 RelativeRect，定义菜单位置
-    final RelativeRect relativeRect = RelativeRect.fromLTRB(
-      left,
-      top,
-      screenWidth - (left + menuWidthEstimate),
-      overlay.size.height - top - menuHeightEstimate,
-    );
+    if (left < 0) left = 0; // Ensure not off-screen to the left
 
     showMenu(
       context: context,
-      position: relativeRect,
+      position: RelativeRect.fromLTRB(
+          left,
+          top,
+          overlay.size.width - left - menuWidthEstimate,
+          overlay.size.height - top), // Adjusted RelativeRect
       items: [
         PopupMenuItem(
-            onTap: () => _onPlayplaylist(playlist), child: const Text('播放')),
+            onTap: () => _onPlayPlaylist(playlist), child: const Text('播放')),
         PopupMenuItem(
-            onTap: () => _onDeleteplaylist(playlist), child: const Text('删除')),
+            onTap: () => _onDeletePlaylist(playlist), child: const Text('删除')),
       ],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
 
-  Future<void> _onPlayplaylist(PlaylistModel playlist) async {
-    // 播放收藏夹
+  Future<void> _onPlayPlaylist(PlaylistModel playlist) async {
+    if (playlist.id == null) {
+      if (mounted) CreateMessage('收藏夹 ID 无效', context);
+      return;
+    }
     var playlistSongs =
         await widget.playlistService.getPlaylistSongs(playlist.id!);
     if (playlistSongs.isEmpty) {
-      CreateMessage('收藏夹为空，无法播放', context);
+      if (mounted) CreateMessage('收藏夹为空，无法播放', context);
       return;
     }
     widget.playbackService.setPlaybackList(playlistSongs, playlistSongs.first);
     widget.playbackService.playSong(playlistSongs.first);
   }
 
-  Future<void> _onDeleteplaylist(PlaylistModel playlist) async {
-    // 删除收藏夹
-    final confirm = await _showDeleteDialog(context);
+  Future<void> _onDeletePlaylist(PlaylistModel playlist) async {
+    if (playlist.id == null) {
+      if (mounted) CreateMessage('收藏夹 ID 无效，无法删除', context);
+      return;
+    }
+    final confirm = await _showDeleteDialog(context, playlist.name);
     if (confirm == true) {
       await widget.playlistService.deletePlaylist(playlist.id!);
-      widget.onPlaylistsChanged();
-      setState(() {});
+      _refreshPlaylists();
     }
   }
 
-  Future<bool?> _showDeleteDialog(BuildContext context) {
+  Future<bool?> _showDeleteDialog(BuildContext context, String playlistName) {
     return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('删除收藏夹'),
-        content: const Text('是否删除此收藏夹？'),
+        content: Text('是否删除收藏夹：$playlistName？'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -259,11 +274,163 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
 
   void _createNewPlaylist() async {
     final name = await showNewPlaylistDialog(context);
-    if (name != null) {
-      // 调用后端接口创建收藏夹
+    if (name != null && name.isNotEmpty) {
       await widget.playlistService.createPlaylist(name);
-      setState(() {});
-      widget.onPlaylistsChanged();
+      _refreshPlaylists();
     }
+  }
+}
+
+// New StatefulWidget for individual playlist items
+class PlaylistItemWidget extends StatefulWidget {
+  final PlaylistModel playlist;
+  final VoidCallback onTap;
+  final void Function(TapDownDetails) onSecondaryTapDown;
+  final PlaylistService playlistService;
+
+  const PlaylistItemWidget({
+    super.key,
+    required this.playlist,
+    required this.onTap,
+    required this.onSecondaryTapDown,
+    required this.playlistService,
+  });
+
+  @override
+  State<PlaylistItemWidget> createState() => _PlaylistItemWidgetState();
+}
+
+class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
+  Future<ImageProvider>? _imageProviderFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadImageProvider();
+  }
+
+  void _loadImageProvider() {
+    // Only attempt to load if songs list is not null, not empty, and path is valid
+    if (widget.playlist.songs != null &&
+        widget.playlist.songs!.isNotEmpty &&
+        widget.playlist.songs!.first.path.isNotEmpty) {
+      // Check for non-empty path
+      _imageProviderFuture = ThumbnailGenerator()
+          .getThumbnailProvider(widget.playlist.songs!.first.path);
+    } else {
+      _imageProviderFuture =
+          null; // Explicitly set to null if no valid image source
+    }
+  }
+
+  // 构建圆角矩形图片 (成功加载时)
+  Widget _buildPlaylistImage(ImageProvider imageProvider) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8.0), // 您期望的圆角
+      child: Image(
+        image: imageProvider,
+        // ListTile的leading区域通常较小，您示例的72x72可能过大。
+        // CircleAvatar(radius: 20) 是 40x40，这里也用40x40作为示例。
+        // 您可以根据实际效果调整。
+        width: 40,
+        height: 40,
+        fit: BoxFit.cover, // 图片裁剪方式
+        errorBuilder: (context, error, stackTrace) {
+          // 图片渲染错误时的占位符
+          debugPrint(
+              "Error rendering image for '${widget.playlist.name}' in Image widget: $error");
+          return Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: Colors.grey[300], // 错误时的背景色
+              borderRadius: BorderRadius.circular(8.0),
+            ),
+            child: const Icon(Icons.broken_image_outlined,
+                size: 20, color: Colors.black54), // 错误图标
+          );
+        },
+      ),
+    );
+  }
+
+  // 构建加载中或无图片时的占位符 (圆角矩形)
+  Widget _buildPlaceholderOrLoadingImage({bool isLoading = false}) {
+    return Container(
+      width: 40, // 与图片大小一致
+      height: 40,
+      decoration: BoxDecoration(
+        color: Colors.grey[200], // 占位符背景色
+        borderRadius: BorderRadius.circular(8.0),
+      ),
+      child: Center(
+        child: isLoading
+            ? const SizedBox(
+                // 加载指示器
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2.0),
+              )
+            : const Icon(Icons.music_note,
+                size: 20, color: Colors.black54), // 默认音乐图标
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onSecondaryTapDown: widget.onSecondaryTapDown,
+      child: ListTile(
+        leading: (_imageProviderFuture != null)
+            ? FutureBuilder<ImageProvider>(
+                future: _imageProviderFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.done) {
+                    if (snapshot.hasData && snapshot.data != null) {
+                      // Future完成且有数据，显示图片
+                      return _buildPlaylistImage(snapshot.data!);
+                    } else {
+                      // Future完成但无数据或出错 (例如getThumbnailProvider内部抛出异常)
+                      debugPrint(
+                          "FutureBuilder completed with error or no data for '${widget.playlist.name}': ${snapshot.error}");
+                      return _buildPlaceholderOrLoadingImage(
+                          isLoading: false); // 显示默认占位符
+                    }
+                  } else {
+                    // Future还在加载中
+                    return _buildPlaceholderOrLoadingImage(
+                        isLoading: true); // 显示加载占位符
+                  }
+                },
+              )
+            : _buildPlaceholderOrLoadingImage(
+                isLoading: false), // _imageProviderFuture为null时的默认占位符
+        title: Text(widget.playlist.name, overflow: TextOverflow.ellipsis),
+        onTap: () async {
+          // 确保 widget.playlist.id 不为 null
+          if (widget.playlist.id != null) {
+            try {
+              // 使用传递进来的 playlistService 获取歌曲列表
+              final songs = await widget.playlistService
+                  .getPlaylistSongs(widget.playlist.id!);
+              if (mounted && songs.isNotEmpty && songs.first.path.isNotEmpty) {
+                // 更新 _imageProviderFuture 并触发UI刷新
+                setState(() {
+                  _imageProviderFuture = ThumbnailGenerator()
+                      .getThumbnailProvider(songs.first.path);
+                });
+              }
+            } catch (e) {
+              debugPrint(
+                  "Error in onTap while refreshing playlist image for '${widget.playlist.name}': $e");
+              // 即使图片刷新失败，也继续执行导航
+            }
+          }
+          // 执行父组件传递过来的原始 onTap 回调（通常是导航）
+          widget.onTap();
+        },
+      ),
+    );
   }
 }
