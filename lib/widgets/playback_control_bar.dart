@@ -220,23 +220,23 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
           onTap: () => _onTapped(song, context),
           child: Row(
             children: [
-              FutureBuilder<ImageProvider>(
-                future: ThumbnailGenerator().getThumbnailProvider(song.path),
+              FutureBuilder<Image>(
+                future: ThumbnailGenerator().getOriginCover(song.path),
                 builder: (context, snapshot) {
                   if (snapshot.hasData) {
                     return ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: Image(
-                        image: snapshot.data!,
+                        image: snapshot.data!.image,
                         width: 72,
                         height: 72,
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) =>
-                            const Icon(Icons.music_note, size: 80),
+                            const Icon(Icons.music_note, size: 24),
                       ),
                     );
                   }
-                  return const Icon(Icons.music_note, size: 80);
+                  return const Icon(Icons.music_note, size: 24);
                 },
               ),
               const SizedBox(width: 8),
