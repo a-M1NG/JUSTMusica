@@ -34,7 +34,7 @@ class _PlaylistDetailPageState
     if (widget.playlist.id != oldWidget.playlist.id) {
       // 收藏夹ID变化时，重新加载歌曲
       setState(() {
-        songsFuture = loadSongsImplementation();
+        loadSongs();
         _coverImage = null; // 清空封面图，重新加载
       });
     }
@@ -84,7 +84,7 @@ class _PlaylistDetailPageState
       await widget.playlistService
           .removeSongFromPlaylist(widget.playlist.id!, song.id!);
       setState(() {
-        songsFuture = loadSongsImplementation();
+        loadSongs();
       });
     }
   }
@@ -200,6 +200,7 @@ class _PlaylistDetailPageState
               Expanded(
                 child: TextField(
                   controller: nameController,
+                  maxLength: 40,
                   decoration: const InputDecoration(
                       labelText: '歌单名称', border: OutlineInputBorder()),
                 ),
