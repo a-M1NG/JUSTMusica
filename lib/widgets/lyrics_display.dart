@@ -128,7 +128,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                       duration: const Duration(milliseconds: 300),
                       style: TextStyle(
                         fontFamily: "HarmonyOS_Sans_SC",
-                        fontSize: lyricSize,
+                        fontSize: isCurrent ? lyricSize : lyricSize - 1.5,
                         fontWeight:
                             isCurrent ? FontWeight.bold : FontWeight.normal,
                         color: isCurrent
