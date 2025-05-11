@@ -258,36 +258,12 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   }
 
   void _createNewPlaylist() async {
-    final name = await _showNewPlaylistDialog(context);
+    final name = await showNewPlaylistDialog(context);
     if (name != null) {
       // 调用后端接口创建收藏夹
       await widget.playlistService.createPlaylist(name);
       setState(() {});
       widget.onPlaylistsChanged();
     }
-  }
-
-  Future<String?> _showNewPlaylistDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建收藏夹'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
   }
 }

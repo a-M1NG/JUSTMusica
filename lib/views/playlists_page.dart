@@ -125,6 +125,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
         title: const Text('新建收藏夹'),
         content: TextField(
           controller: controller,
+          maxLength: 40,
           decoration: const InputDecoration(hintText: '输入收藏夹名称'),
         ),
         actions: [

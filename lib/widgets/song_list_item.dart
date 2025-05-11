@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_musica/utils/tools.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 import 'dart:async';
 import '../models/song_model.dart';
@@ -267,94 +268,12 @@ class _SongListItemState extends State<SongListItem> {
         ),
         PopupMenuItem(
           child: const Text('加入收藏夹'),
-          onTap: () => _showAddToPlaylistDialog(context),
+          onTap: () => showAddToPlaylistDialog(context, widget.song),
         ),
         PopupMenuItem(onTap: widget.onPlay, child: const Text('播放')),
         PopupMenuItem(onTap: widget.onDelete, child: const Text('删除')),
       ],
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    );
-  }
-
-  void _showAddToPlaylistDialog(BuildContext context) async {
-    var dbService = DatabaseService();
-    var playlistService = PlaylistService(await dbService.database);
-    final playlists = await playlistService.getPlaylists();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('添加到收藏夹'),
-            TextButton(
-              onPressed: () async {
-                final name = await _showNewPlaylistDialog(context);
-                if (name != null && name.isNotEmpty) {
-                  final newPlaylist =
-                      await playlistService.createPlaylist(name);
-                  await playlistService.addSongToPlaylist(
-                      newPlaylist.id!, widget.song.id!);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('已添加 ${widget.song.title} 到新收藏夹: $name')),
-                  );
-                  Navigator.pop(context);
-                }
-              },
-              child: const Text('新建收藏'),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: playlists.length,
-            itemBuilder: (context, index) {
-              final playlist = playlists[index];
-              return ListTile(
-                title: Text(playlist.name),
-                onTap: () {
-                  playlistService.addSongToPlaylist(
-                      playlist.id!, widget.song.id!);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                          '已添加 ${widget.song.title} 到收藏夹: ${playlist.name}'),
-                    ),
-                  );
-                  Navigator.pop(context);
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _showNewPlaylistDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建收藏夹'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
     );
   }
 

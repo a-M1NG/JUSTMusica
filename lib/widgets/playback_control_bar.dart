@@ -180,8 +180,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                       ),
                       IconButton(
                         icon: const Icon(Icons.playlist_add),
-                        onPressed: () =>
-                            _showAddToPlaylistDialog(context, song),
+                        onPressed: () => showAddToPlaylistDialog(context, song),
                         tooltip: '添加到收藏夹',
                       ),
                       HorizontalVolumeController(
@@ -380,107 +379,6 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
         },
         transitionDuration: const Duration(milliseconds: 300),
         reverseTransitionDuration: const Duration(milliseconds: 300),
-      ),
-    );
-  }
-
-  void _showAddToPlaylistDialog(BuildContext context, SongModel song) async {
-    final playlists = await widget.playlistService.getPlaylists();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('添加到收藏夹'),
-            TextButton(
-              onPressed: () async {
-                final name = await _showNewPlaylistDialog(context);
-                if (name != null && name.trim().isNotEmpty) {
-                  final newPlaylist =
-                      await widget.playlistService.createPlaylist(name);
-                  var res = await widget.playlistService
-                      .addSongToPlaylist(newPlaylist.id!, song.id!);
-                  Navigator.pop(context);
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加 ${song.title} 到新收藏夹: $name')),
-                  );
-                }
-              },
-              child: const Text('新建收藏'),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: playlists.length,
-            itemBuilder: (context, index) {
-              final playlist = playlists[index];
-              return ListTile(
-                leading: const Icon(Icons.playlist_play),
-                title: Text(playlist.name),
-                onTap: () async {
-                  var res = await widget.playlistService
-                      .addSongToPlaylist(playlist.id!, song.id!);
-                  Navigator.pop(context);
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content:
-                            Text('已添加 ${song.title} 到收藏夹: ${playlist.name}')),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _showNewPlaylistDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建收藏夹'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
-          autofocus: true,
-          onSubmitted: (value) {
-            if (value.trim().isNotEmpty) {
-              Navigator.pop(context, value);
-            }
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (controller.text.trim().isNotEmpty) {
-                Navigator.pop(context, controller.text);
-              }
-            },
-            child: const Text('创建'),
-          ),
-        ],
       ),
     );
   }

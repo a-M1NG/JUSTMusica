@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:just_musica/services/playback_service.dart';
+import 'package:just_musica/views/base_music_page.dart';
 import 'package:provider/provider.dart';
 import '../widgets/navigation_bar.dart';
 import '../widgets/playback_control_bar.dart';
@@ -13,6 +14,8 @@ import '../services/playlist_service.dart';
 import 'setting_page.dart';
 import 'playlist_detail_page.dart';
 import '../models/playlist_model.dart';
+
+typedef VoidCallbackAsync = Future<void> Function();
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});

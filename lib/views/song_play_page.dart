@@ -12,6 +12,7 @@ import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
 import 'package:just_musica/widgets/volume_controller.dart';
 import '../widgets/progress_slider.dart';
+import 'package:just_musica/utils/tools.dart';
 
 class SongPlayPage extends StatefulWidget {
   SongModel song;
@@ -357,7 +358,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 IconButton(
                   icon: const Icon(Icons.playlist_add, size: 24),
                   onPressed: () =>
-                      _showAddToPlaylistDialog(context, playlistService),
+                      showAddToPlaylistDialog(context, widget.song),
                 ),
               ],
             ),
@@ -370,101 +371,6 @@ class _SongPlayPageState extends State<SongPlayPage> {
   void _toggleFavorite(FavoritesService favoritesService, SongModel song) {
     song.isFavorite = !song.isFavorite;
     favoritesService.toggleFavorite(song.id!);
-  }
-
-  void _showAddToPlaylistDialog(
-      BuildContext context, PlaylistService playlistService) async {
-    final playlists = await playlistService.getPlaylists();
-    final currentSong = _currentSong ?? widget.song;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('添加到收藏夹'),
-            TextButton(
-              onPressed: () async {
-                final name = await _showNewPlaylistDialog(context);
-                if (name != null) {
-                  final newPlaylist =
-                      await playlistService.createPlaylist(name);
-                  var res = await playlistService.addSongToPlaylist(
-                      newPlaylist.id!, currentSong.id!);
-                  widget.onPlaylistsChanged(); // 通知前台更新
-                  Navigator.pop(context);
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('已添加 ${currentSong.title} 到收藏夹: $name')),
-                  );
-                }
-              },
-              child: const Text('新建收藏'),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: playlists.length,
-            itemBuilder: (context, index) {
-              final playlist = playlists[index];
-              return ListTile(
-                leading: const Icon(Icons.playlist_play),
-                title: Text(playlist.name),
-                onTap: () async {
-                  var res = await playlistService.addSongToPlaylist(
-                      playlist.id!, currentSong.id!);
-                  Navigator.pop(context);
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text(
-                            '已添加 ${currentSong.title} 到收藏夹: ${playlist.name}')),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _showNewPlaylistDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建收藏夹'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
   }
 }
 

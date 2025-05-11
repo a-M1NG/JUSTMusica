@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:just_musica/utils/tools.dart';
 import '../models/song_model.dart';
 import '../services/playback_service.dart';
 import '../services/favorites_service.dart';
@@ -227,115 +228,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       );
       return;
     }
-    _showAddToPlaylistDialog(context);
-  }
-
-  void _showAddToPlaylistDialog(BuildContext context) async {
-    var dbService = DatabaseService();
-    var playlistService = PlaylistService(await dbService.database);
-    final playlists = await playlistService.getPlaylists();
-    // ignore: use_build_context_synchronously
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text('添加到收藏夹'),
-            TextButton(
-              onPressed: () async {
-                final name = await _showNewPlaylistDialog(context);
-                if (name != null && name.isNotEmpty) {
-                  final newPlaylist =
-                      await playlistService.createPlaylist(name);
-                  // ignore: use_build_context_synchronously
-                  if (!mounted) return;
-                  Navigator.pop(context); // Close the add to playlist dialog
-
-                  var res = await playlistService.addSongsToPlaylist(
-                      newPlaylist.id!, selectedSongIds.toList());
-
-                  var cnt = selectedSongIds.length;
-                  _exitMultiSelectMode(); // Exits multi-select, clears selection
-
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加 $cnt 首歌到新收藏夹: $name')),
-                  );
-                }
-              },
-              child: const Text('新建收藏'),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: playlists.length,
-            itemBuilder: (context, index) {
-              final playlist = playlists[index];
-              return ListTile(
-                title: Text(playlist.name),
-                onTap: () async {
-                  // ignore: use_build_context_synchronously
-                  if (!mounted) return;
-                  Navigator.pop(context); // Close the add to playlist dialog
-
-                  var res = await playlistService.addSongsToPlaylist(
-                      playlist.id!, selectedSongIds.toList());
-
-                  var cnt = selectedSongIds.length;
-                  _exitMultiSelectMode(); // Exits multi-select, clears selection
-
-                  if (res != null && !res) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('存在重复添加歌曲！')),
-                    );
-                    return;
-                  }
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                        content: Text('已添加 $cnt 首歌到收藏夹: ${playlist.name}')),
-                  );
-                },
-              );
-            },
-          ),
-        ),
-      ),
-    );
-  }
-
-  Future<String?> _showNewPlaylistDialog(BuildContext context) {
-    final controller = TextEditingController();
-    return showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('新建收藏夹'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入收藏夹名称'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('创建'),
-          ),
-        ],
-      ),
-    );
+    showAddToPlaylistDialogMultiSelection(context, mounted, selectedSongIds,
+        _exitMultiSelectMode); // Show dialog to add to favorites
   }
 
   PreferredSizeWidget _buildAppBar() {
