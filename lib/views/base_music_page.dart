@@ -6,6 +6,12 @@ import '../widgets/song_list_item.dart';
 import '../services/database_service.dart';
 import '../services/playlist_service.dart';
 
+enum AppBarMode {
+  normal,
+  multiSelect,
+  search,
+}
+
 abstract class SongListPageBase extends StatefulWidget {
   final PlaybackService playbackService;
   final FavoritesService favoritesService;
@@ -21,45 +27,96 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     extends State<T> {
   late Future<List<SongModel>> songsFuture;
   List<SongModel> loadedSongs = [];
+  List<SongModel> _displayedSongs =
+      []; // For displaying either all or searched songs
   Set<int> selectedSongIds = {};
+
+  AppBarMode _appBarMode = AppBarMode.normal;
+  final TextEditingController _searchController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+
+  // Helper to determine if we are in multi-select logical mode
+  bool get _isActuallyMultiSelectMode => _appBarMode == AppBarMode.multiSelect;
+
   @override
   void initState() {
     super.initState();
     loadSongs();
   }
 
-  final ScrollController _scrollController = ScrollController();
-  // 抽象方法：加载歌曲列表
+  // Abstract method: load songs implementation
   Future<List<SongModel>> loadSongsImplementation();
 
-  // 加载歌曲并缓存
+  // Load songs and cache
   Future<void> loadSongs() async {
     songsFuture = loadSongsImplementation();
     songsFuture.then((songs) {
       setState(() {
         loadedSongs = songs;
+        _displayedSongs = List.from(loadedSongs); // Initialize displayed songs
+        _resetSearch(); // If songs are reloaded, reset search
       });
+    }).catchError((error) {
+      // Handle or log error if necessary
+      if (mounted) {
+        setState(() {
+          loadedSongs = [];
+          _displayedSongs = [];
+        });
+      }
+    });
+  }
+
+  void _resetSearch() {
+    _searchController.clear();
+    if (_appBarMode == AppBarMode.search) {
+      // If currently in search mode, re-apply empty search to show all loaded songs
+      _performSearch("");
+    } else {
+      // Otherwise, ensure displayed songs reflect all loaded songs
+      _displayedSongs = List.from(loadedSongs);
+    }
+  }
+
+  void _performSearch(String query) {
+    final lowerCaseQuery = query.toLowerCase().trim();
+    setState(() {
+      if (lowerCaseQuery.isEmpty) {
+        _displayedSongs = List.from(loadedSongs);
+      } else {
+        _displayedSongs = loadedSongs.where((song) {
+          return song.title!.toLowerCase().contains(lowerCaseQuery);
+        }).toList();
+      }
+      // When a search is performed, multi-selection should be reset
+      // as the context of selectable items has changed.
+      selectedSongIds.clear();
+      _isSelectAll = false;
     });
   }
 
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  // 播放歌曲
+  // Play song
   void playSong(SongModel song) {
+    // Use _displayedSongs for context if it makes sense, or always loadedSongs for full playlist
+    // For now, using loadedSongs implies the original full list context for playback.
+    // If you want playback to be only from search results, use _displayedSongs.
     widget.playbackService.setPlaybackList(loadedSongs, song);
     widget.playbackService.playSong(song);
   }
 
-  // 将歌曲加入下一首播放
+  // Add to next
   void addToNext(SongModel song) {
     widget.playbackService.playNext(song.id!);
   }
 
-  // 切换收藏状态
+  // Toggle favorite
   void toggleFavorite(SongModel song) {
     setState(() {
       song.isFavorite = !song.isFavorite;
@@ -67,10 +124,10 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     widget.favoritesService.toggleFavorite(song.id!);
   }
 
-  // 抽象方法：删除歌曲
+  // Abstract method: delete song
   Future<void> deleteSong(SongModel song);
 
-  // 显示删除确认对话框
+  // Show delete confirmation dialog
   Future<bool?> showDeleteDialog(
       BuildContext context, String title, String content) {
     return showDialog<bool>(
@@ -92,39 +149,59 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     );
   }
 
-  bool _isMultiSelectMode = false;
-  bool get isMultiSelectMode => _isMultiSelectMode;
+  // No longer directly setting _isMultiSelectMode. It's derived from _appBarMode.
+  // The old setter logic is moved to where _appBarMode changes.
+  // bool _isMultiSelectMode = false;
+  // bool get isMultiSelectMode => _isMultiSelectMode;
+
   bool _isSelectAll = false;
-  set isMultiSelectMode(bool value) {
-    _isMultiSelectMode = value;
-    if (!value) {
-      setState(() {
-        selectedSongIds.clear();
-      });
-    }
+
+  void _switchToMultiSelectMode() {
+    setState(() {
+      _appBarMode = AppBarMode.multiSelect;
+      selectedSongIds.clear();
+      _isSelectAll = false;
+    });
   }
 
-  // 切换多选模式
-  void OnMultiSelection(BuildContext context) {
+  void _exitMultiSelectMode() {
     setState(() {
-      isMultiSelectMode = !isMultiSelectMode;
-      if (!isMultiSelectMode) {
-        selectedSongIds.clear(); // 退出多选模式时清除选择
-      }
+      _appBarMode = AppBarMode.normal;
+      selectedSongIds.clear();
+      _isSelectAll = false;
+    });
+  }
+
+  void _exitSearchMode() {
+    setState(() {
+      _appBarMode = AppBarMode.normal;
+      _searchController.clear();
+      _displayedSongs = List.from(loadedSongs); // Reset to all songs
+      selectedSongIds.clear(); // Clear selections when exiting search
+      _isSelectAll = false;
     });
   }
 
   void toggleSelection(int songId) {
+    if (!_isActuallyMultiSelectMode)
+      return; // Can only select in multi-select mode
     setState(() {
       if (selectedSongIds.contains(songId)) {
         selectedSongIds.remove(songId);
+        _isSelectAll =
+            false; // If one item is deselected, it's no longer "select all"
       } else {
         selectedSongIds.add(songId);
+        if (selectedSongIds.length == _displayedSongs.length &&
+            _displayedSongs.isNotEmpty) {
+          _isSelectAll = true;
+        }
       }
     });
   }
 
-  Future<bool?> onDeleteSelected() async {}
+  Future<bool?> onDeleteSelected(); // This should be implemented by subclasses
+
   void _onDeleteSelected() async {
     if (selectedSongIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -132,13 +209,17 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       );
       return;
     }
-    var res = await onDeleteSelected();
+    var res = await onDeleteSelected(); // Subclass implements actual deletion
     if (res == true) {
-      isMultiSelectMode = false;
+      // The loadSongs() or equivalent refresh should be called by the subclass
+      // which will then update loadedSongs and _displayedSongs.
+      // For now, assume the subclass handles UI refresh post-deletion.
+      _exitMultiSelectMode(); // Exit multi-select mode after successful deletion
     }
   }
 
   Widget? getHeader() => null;
+
   void onAddToFavoritesSelected() {
     if (selectedSongIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -153,6 +234,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     var dbService = DatabaseService();
     var playlistService = PlaylistService(await dbService.database);
     final playlists = await playlistService.getPlaylists();
+    // ignore: use_build_context_synchronously
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -166,20 +249,24 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                 if (name != null && name.isNotEmpty) {
                   final newPlaylist =
                       await playlistService.createPlaylist(name);
+                  // ignore: use_build_context_synchronously
+                  if (!mounted) return;
+                  Navigator.pop(context); // Close the add to playlist dialog
+
                   var res = await playlistService.addSongsToPlaylist(
                       newPlaylist.id!, selectedSongIds.toList());
-                  Navigator.pop(context);
+
                   var cnt = selectedSongIds.length;
-                  isMultiSelectMode = false;
-                  selectedSongIds.clear();
+                  _exitMultiSelectMode(); // Exits multi-select, clears selection
+
                   if (res != null && !res) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
+                      const SnackBar(content: Text('存在重复添加歌曲！')),
                     );
                     return;
                   }
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('已添加 ${cnt} 首歌到新收藏夹: $name')),
+                    SnackBar(content: Text('已添加 $cnt 首歌到新收藏夹: $name')),
                   );
                 }
               },
@@ -197,22 +284,25 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
               return ListTile(
                 title: Text(playlist.name),
                 onTap: () async {
+                  // ignore: use_build_context_synchronously
+                  if (!mounted) return;
+                  Navigator.pop(context); // Close the add to playlist dialog
+
                   var res = await playlistService.addSongsToPlaylist(
                       playlist.id!, selectedSongIds.toList());
-                  Navigator.pop(context);
+
                   var cnt = selectedSongIds.length;
-                  isMultiSelectMode = false;
-                  selectedSongIds.clear();
+                  _exitMultiSelectMode(); // Exits multi-select, clears selection
+
                   if (res != null && !res) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('存在重复添加歌曲！')),
+                      const SnackBar(content: Text('存在重复添加歌曲！')),
                     );
                     return;
                   }
-
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                        content: Text('已添加 ${cnt} 首歌到收藏夹: ${playlist.name}')),
+                        content: Text('已添加 $cnt 首歌到收藏夹: ${playlist.name}')),
                   );
                 },
               );
@@ -232,6 +322,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
         content: TextField(
           controller: controller,
           decoration: const InputDecoration(hintText: '输入收藏夹名称'),
+          autofocus: true,
         ),
         actions: [
           TextButton(
@@ -239,7 +330,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
             child: const Text('取消'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, controller.text),
+            onPressed: () => Navigator.pop(context, controller.text.trim()),
             child: const Text('创建'),
           ),
         ],
@@ -247,103 +338,210 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     );
   }
 
-  // 构建通用的 UI 结构
-  @override
-  Widget build(BuildContext context) {
-    var hasHeader = getHeader() != null;
-    return Scaffold(
-      extendBodyBehindAppBar: !hasHeader,
-      appBar: AppBar(
-        title: Text(getPageTitle()),
-        backgroundColor:
-            Theme.of(context).appBarTheme.backgroundColor!.withAlpha(220),
-        elevation: 0,
-        actions: isMultiSelectMode
-            ? [
+  PreferredSizeWidget _buildAppBar() {
+    final ThemeData theme = Theme.of(context); // Get the current theme
+
+    switch (_appBarMode) {
+      case AppBarMode.search:
+        // Determine default text color for AppBar to use for TextField input and hint base
+        final Color appBarForegroundColor = theme.appBarTheme
+                .foregroundColor ?? // New in Flutter 3.0 for icons and text
+            theme.appBarTheme.titleTextStyle?.color ??
+            (theme.brightness == Brightness.dark ? Colors.white : Colors.black);
+
+        return AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.arrow_back,
+                color: appBarForegroundColor), // Match icon color
+            tooltip: '返回',
+            onPressed: _exitSearchMode,
+          ),
+          title: TextField(
+            controller: _searchController,
+            autofocus: true,
+            textAlign: TextAlign
+                .center, // Centers both hint and input text horizontally
+            textAlignVertical:
+                TextAlignVertical.center, // Helps center text vertically
+            style: TextStyle(
+                color:
+                    appBarForegroundColor), // Style for the actual input text
+            decoration: InputDecoration(
+              hintText: '搜索歌曲标题...',
+              hintStyle: TextStyle(
+                // Make hint color a semi-transparent version of the AppBar's foreground color
+                color: appBarForegroundColor.withOpacity(0.6),
+              ),
+              border: InputBorder
+                  .none, // Removes the underline for a cleaner look in AppBar
+              isDense: true, // Reduces TextField's intrinsic padding
+              suffixIcon: IconButton(
+                icon: Icon(Icons.search,
+                    color: appBarForegroundColor
+                        .withOpacity(0.7)), // Match icon color with opacity
+                tooltip: '搜索',
+                onPressed: () {
+                  _performSearch(_searchController.text);
+                  // Optionally hide keyboard after search initiated
+                  FocusScope.of(context).unfocus();
+                },
+              ),
+            ),
+            onSubmitted: (query) {
+              // Allows searching by pressing enter on keyboard
+              _performSearch(query);
+              FocusScope.of(context).unfocus(); // Hide keyboard
+            },
+            // onChanged: (query) { // Uncomment for live search:
+            //   _performSearch(query);
+            // },
+          ),
+          centerTitle:
+              true, // This is crucial for centering the TextField widget itself within the AppBar
+          backgroundColor: theme.appBarTheme.backgroundColor?.withAlpha(220) ??
+              Colors.transparent,
+          elevation: 0,
+        );
+      case AppBarMode.multiSelect:
+        final Color appBarForegroundColor = theme.appBarTheme.foregroundColor ??
+            theme.appBarTheme.titleTextStyle?.color ??
+            (theme.brightness == Brightness.dark ? Colors.white : Colors.black);
+        return AppBar(
+          leading: IconButton(
+            icon: Icon(Icons.close, color: appBarForegroundColor),
+            tooltip: '取消多选',
+            onPressed: _exitMultiSelectMode,
+          ),
+          title: Text('已选择 ${selectedSongIds.length} 项',
+              style: TextStyle(color: appBarForegroundColor)),
+          backgroundColor: theme.appBarTheme.backgroundColor?.withAlpha(220) ??
+              Colors.transparent,
+          elevation: 0,
+          actions: [
+            // ... (multi-select actions - ensure their styling is consistent if needed)
+            ElevatedButton.icon(
+              icon: Icon(_isSelectAll ? Icons.deselect : Icons.select_all,
+                  size: 20),
+              label: Text(
+                  _isSelectAll ? '取消全选' : '全选 (${_displayedSongs.length})'),
+              onPressed: _displayedSongs.isEmpty
+                  ? null
+                  : () {
+                      setState(() {
+                        _isSelectAll = !_isSelectAll;
+                        if (_isSelectAll) {
+                          for (var song in _displayedSongs) {
+                            selectedSongIds.add(song.id!);
+                          }
+                        } else {
+                          selectedSongIds.clear();
+                        }
+                      });
+                    },
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 4), // Reduced spacing slightly
+            ElevatedButton.icon(
+              icon: const Icon(Icons.delete, size: 20),
+              label: const Text('删除'),
+              onPressed: selectedSongIds.isEmpty ? null : _onDeleteSelected,
+              style: ElevatedButton.styleFrom(
+                foregroundColor: selectedSongIds.isEmpty
+                    ? Colors.grey.shade700
+                    : theme.colorScheme.onError,
+                backgroundColor: selectedSongIds.isEmpty
+                    ? Colors.grey.shade300
+                    : theme.colorScheme.error,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 4),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.folder_special, size: 20),
+              label: const Text('加入收藏'),
+              onPressed:
+                  selectedSongIds.isEmpty ? null : onAddToFavoritesSelected,
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ],
+        );
+      case AppBarMode.normal:
+      default:
+        final Color appBarForegroundColor = theme.appBarTheme.foregroundColor ??
+            theme.appBarTheme.titleTextStyle?.color ??
+            (theme.brightness == Brightness.dark ? Colors.white : Colors.black);
+        return AppBar(
+          title: Text(getPageTitle(),
+              style: TextStyle(color: appBarForegroundColor)),
+          backgroundColor: theme.appBarTheme.backgroundColor?.withAlpha(220) ??
+              Colors.transparent,
+          elevation: 0,
+          actions: <Widget>[
                 ElevatedButton.icon(
-                  icon: const Icon(Icons.select_all, size: 20),
-                  label: const Text('全选'),
+                  icon: const Icon(Icons.checklist_rtl, size: 20),
+                  label: const Text('多选'),
+                  onPressed: _switchToMultiSelectMode,
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.search, size: 20),
+                  label: const Text('搜索'),
                   onPressed: () {
                     setState(() {
-                      _isSelectAll = !_isSelectAll;
-                      if (_isSelectAll) {
-                        for (var song in loadedSongs) {
-                          selectedSongIds.add(song.id!);
-                        }
-                      } else {
-                        selectedSongIds.clear();
-                      }
+                      _appBarMode = AppBarMode.search;
+                      selectedSongIds.clear();
+                      _isSelectAll = false;
                     });
                   },
                   style: ElevatedButton.styleFrom(
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
                 const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.delete, size: 20),
-                  label: const Text('删除'),
-                  onPressed: _onDeleteSelected,
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.folder_special, size: 20),
-                  label: const Text('加入收藏'),
-                  onPressed: onAddToFavoritesSelected,
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.cancel, size: 20),
-                  label: const Text('取消'),
-                  onPressed: () => setState(() {
-                    isMultiSelectMode = false;
-                    selectedSongIds.clear();
-                  }),
-                  style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-              ]
-            : [
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.select_all, size: 20),
-                    label: const Text('多选'),
-                    onPressed: () => OnMultiSelection(context),
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                ] +
-                getAppBarActions() +
-                [SizedBox(width: 8)],
-      ),
+              ] +
+              getAppBarActions() +
+              [const SizedBox(width: 8)],
+        );
+    }
+  }
+
+  // Build the UI structure
+  @override
+  Widget build(BuildContext context) {
+    var hasHeader = getHeader() != null;
+    return Scaffold(
+      extendBodyBehindAppBar: !hasHeader &&
+          _appBarMode ==
+              AppBarMode
+                  .normal, // Adjust extendBody for different app bar states
+      appBar: _buildAppBar(),
       body: Container(
-        color: Theme.of(context).primaryColor.withOpacity(0.2),
+        color: Theme.of(context)
+            .colorScheme
+            .background
+            .withOpacity(0.2), // Use colorScheme
         child: Column(
           children: [
             Expanded(
               child: FutureBuilder<List<SongModel>>(
-                future: songsFuture,
+                future: songsFuture, // This future loads `loadedSongs`
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      loadedSongs.isEmpty) {
+                    // Show loading only if songs aren't loaded yet
                     return const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -355,36 +553,45 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                       ),
                     );
                   }
-                  if (snapshot.hasError) {
+                  if (snapshot.hasError && loadedSongs.isEmpty) {
+                    // Show error only if songs aren't loaded
                     return Center(child: Text('加载失败: ${snapshot.error}'));
                   }
-                  final songs = snapshot.data ?? [];
-                  if (songs.isEmpty) {
+                  // Use _displayedSongs for the list
+                  if (_displayedSongs.isEmpty &&
+                      _appBarMode == AppBarMode.search &&
+                      _searchController.text.isNotEmpty) {
+                    return Center(
+                        child: Text('未找到与 "${_searchController.text}" 相关的歌曲'));
+                  }
+                  if (_displayedSongs.isEmpty) {
                     return Center(child: Text(getEmptyMessage()));
                   }
+
+                  final songsToDisplay =
+                      _displayedSongs; // Use the filtered/full list
+
                   if (hasHeader) {
                     return ListView.builder(
                       cacheExtent: 2000,
                       controller: _scrollController,
-                      itemCount: songs.length + 1,
+                      itemCount: songsToDisplay.length + 1,
                       itemBuilder: (context, index) {
                         if (index == 0) {
                           return getHeader()!;
                         } else {
                           final songIndex = index - 1;
+                          final song = songsToDisplay[songIndex];
                           return SongListItem(
-                            song: songs[songIndex],
-                            index: index, // 显示序号从 1 开始
-                            onPlay: () => playSong(songs[songIndex]),
-                            onToggleFavorite: () =>
-                                toggleFavorite(songs[songIndex]),
-                            onDelete: () => deleteSong(songs[songIndex]),
-                            onAddToNext: () => addToNext(songs[songIndex]),
-                            onSelect: () =>
-                                toggleSelection(songs[songIndex].id!),
-                            isSelected:
-                                selectedSongIds.contains(songs[songIndex].id!),
-                            isMultiSelectMode: isMultiSelectMode,
+                            song: song,
+                            index: songIndex + 1, // Display index
+                            onPlay: () => playSong(song),
+                            onToggleFavorite: () => toggleFavorite(song),
+                            onDelete: () => deleteSong(song),
+                            onAddToNext: () => addToNext(song),
+                            onSelect: () => toggleSelection(song.id!),
+                            isSelected: selectedSongIds.contains(song.id!),
+                            isMultiSelectMode: _isActuallyMultiSelectMode,
                           );
                         }
                       },
@@ -393,19 +600,19 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                     return ListView.builder(
                       cacheExtent: 2000,
                       controller: _scrollController,
-                      itemCount: songs.length,
+                      itemCount: songsToDisplay.length,
                       itemBuilder: (context, index) {
+                        final song = songsToDisplay[index];
                         return SongListItem(
-                          song: songs[index],
-                          index: index + 1, // 显示序号从 1 开始
-                          onPlay: () => playSong(songs[index]),
-                          onToggleFavorite: () => toggleFavorite(songs[index]),
-                          onDelete: () => deleteSong(songs[index]),
-                          onAddToNext: () => addToNext(songs[index]),
-                          onSelect: () => toggleSelection(songs[index].id!),
-                          isSelected:
-                              selectedSongIds.contains(songs[index].id!),
-                          isMultiSelectMode: isMultiSelectMode,
+                          song: song,
+                          index: index + 1, // Display index
+                          onPlay: () => playSong(song),
+                          onToggleFavorite: () => toggleFavorite(song),
+                          onDelete: () => deleteSong(song),
+                          onAddToNext: () => addToNext(song),
+                          onSelect: () => toggleSelection(song.id!),
+                          isSelected: selectedSongIds.contains(song.id!),
+                          isMultiSelectMode: _isActuallyMultiSelectMode,
                         );
                       },
                     );
@@ -419,14 +626,14 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     );
   }
 
-  // 抽象方法：获取页面标题
+  // Abstract method: get page title
   String getPageTitle();
 
-  // 抽象方法：获取 AppBar 的 actions
+  // Abstract method: get AppBar actions for normal mode
   List<Widget> getAppBarActions() {
     return [];
   }
 
-  // 抽象方法：获取空列表时的提示信息
+  // Abstract method: get empty message
   String getEmptyMessage();
 }
