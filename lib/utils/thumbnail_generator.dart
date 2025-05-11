@@ -226,6 +226,23 @@ class ThumbnailGenerator {
     }
   }
 
+  Future<ImageProvider> getOriginCoverProvider(String songPath) async {
+    try {
+      final image = await getOriginCover(songPath);
+      if (image.image is MemoryImage) {
+        return image.image as MemoryImage;
+      } else if (image.image is AssetImage) {
+        return image.image as AssetImage;
+      } else {
+        // Fallback to default asset
+        return const AssetImage('assets/images/default_cover.jpg');
+      }
+    } catch (e) {
+      debugPrint('Error getting origin cover provider for $songPath: $e');
+      return const AssetImage('assets/images/default_cover.jpg');
+    }
+  }
+
   Future<LinearGradient?> generateGradient(SongModel song) async {
     if (song.id == null) return null;
     if (_gradientCache.containsKey(song.id!)) {
