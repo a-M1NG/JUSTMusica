@@ -5,7 +5,7 @@ class PlaylistModel {
   String name;
   final DateTime createdAt;
   final String? coverPath; // 新增 coverPath 字段
-  final List<SongModel>? songs;
+  List<SongModel>? songs;
 
   PlaylistModel({
     this.id,

@@ -3,6 +3,7 @@ import 'package:just_musica/models/playlist_model.dart';
 import 'package:logger/logger.dart';
 import 'package:sqflite/sqflite.dart';
 import 'dart:io';
+
 class PlaylistService {
   final Database _database;
   final Logger _logger = Logger();
@@ -18,6 +19,10 @@ class PlaylistService {
       );
       final playlists = maps.map((map) => PlaylistModel.fromMap(map)).toList();
       _logger.i('Fetched ${playlists.length} playlists');
+      for (var playlist in playlists) {
+        final songs = await getPlaylistSongs(playlist.id!);
+        playlist.songs = songs;
+      }
       return playlists;
     } catch (e) {
       _logger.e('Failed to fetch playlists: $e');

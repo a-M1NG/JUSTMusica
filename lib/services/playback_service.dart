@@ -420,6 +420,8 @@ class PlaybackService extends ChangeNotifier {
       }
     } else {
       _currentPlaylist = _oriPlaylist.toList();
+      _currentIndex =
+          _currentPlaylist.indexWhere((s) => s.path == currentSong.path);
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('playback_mode', mode.toString());
