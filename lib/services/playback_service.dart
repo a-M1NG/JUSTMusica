@@ -314,9 +314,9 @@ class PlaybackService extends ChangeNotifier {
         // // 预取信息
         // _logger.i('Prefetching info for song');
         // await ThumbnailGenerator().prefetchInfo(song);
-        // _logger.i('Prefetching info for next song');
-        // await ThumbnailGenerator().prefetchInfo(
-        //     _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
+        _logger.i('Prefetching info for next song');
+        await ThumbnailGenerator().prefetchInfo(
+            _currentPlaylist[(_currentIndex + 1) % _currentPlaylist.length]);
         // _logger.i('Prefetching info for previous song');
         // await ThumbnailGenerator().prefetchInfo(_currentPlaylist[
         //     (_currentIndex - 1 + _currentPlaylist.length) %
