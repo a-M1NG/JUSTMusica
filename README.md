@@ -40,6 +40,6 @@
 + **add songs to playlist**
 ![image](https://github.com/user-attachments/assets/70ed2c0a-cc7c-48dd-a414-f7463e5b9dd5)
 + **song playing detailed page with scrollable lyric displaying**
-![songplayingpage](https://github.com/user-attachments/assets/57f61335-30c2-4958-ac84-8f6d7f26d5a8)
+![image](https://github.com/user-attachments/assets/260ca1b2-d0e6-4679-96bf-2cfd762bf5c7)
 + **switching theme**
 + ![image](https://github.com/user-attachments/assets/57628506-3815-4081-a77e-62c2a79e2050)
