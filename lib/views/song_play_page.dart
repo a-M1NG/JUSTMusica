@@ -15,12 +15,14 @@ import '../widgets/progress_slider.dart';
 import 'package:just_musica/utils/tools.dart';
 
 class SongPlayPage extends StatefulWidget {
-  SongModel song;
+  SongModel
+      song; // Initial song, playbackService.currentSong will be the source of truth after init
   final PlaybackService playbackService;
   final FavoritesService favoritesService;
   final PlaylistService playlistService;
   final ValueNotifier<PlaybackMode> playbackModeNotifier;
   final Function() onPlaylistsChanged;
+
   SongPlayPage({
     super.key,
     required this.song,
@@ -38,45 +40,87 @@ class SongPlayPage extends StatefulWidget {
 class _SongPlayPageState extends State<SongPlayPage> {
   late StreamSubscription _currentSongSubscription;
   late Future<String> _lyricsFuture;
-  bool _isLoading = true;
   Image? _coverImage;
   LinearGradient? _gradient;
-  SongModel? _currentSong;
-  PlaybackMode _currentPlayBackMode = PlaybackMode.sequential;
+  SongModel?
+      _currentSongDisplaying; // The song whose assets are currently displayed or being loaded
+
+  // To keep track of the load operation for the current song
+  String? _currentLoadingSongPath;
 
   @override
   void initState() {
     super.initState();
+    _currentSongDisplaying = widget.playbackService.currentSong ?? widget.song;
+    _lyricsFuture = LyricsService().getLrcForSong(_currentSongDisplaying!);
+    _loadAssetsForSong(_currentSongDisplaying!);
+
     _currentSongSubscription =
-        widget.playbackService.currentSongStream.listen((song) {
-      setState(() {
-        _currentSong = song;
-        _lyricsFuture = LyricsService().getLrcForSong(song);
-        _loadAssets(); // Reload assets when song changes
-      });
+        widget.playbackService.currentSongStream.listen((newSong) {
+      if (mounted) {
+        // When a new song comes from the stream, this is the new target.
+        // Immediately update the song model and lyrics future.
+        // Set cover and gradient to null to show loading/placeholder state.
+        setState(() {
+          _currentSongDisplaying = newSong;
+          _lyricsFuture = LyricsService().getLrcForSong(newSong);
+          _coverImage = null; // Clear old cover
+          _gradient = null; // Clear old gradient
+        });
+        _loadAssetsForSong(newSong); // Start loading assets for the new song
+      }
     });
-    widget.song = widget.playbackService.currentSong;
-    _lyricsFuture = LyricsService().getLrcForSong(widget.song);
-    _currentPlayBackMode = widget.playbackService.playbackMode;
-    _loadAssets();
+    // _currentPlayBackMode = widget.playbackService.playbackMode; // Already available via playbackModeNotifier
   }
 
-  Future<void> _loadAssets() async {
-    final song = _currentSong ?? widget.song;
-    final coverFuture = ThumbnailGenerator().getOriginCover(song.path);
-    final gradientFuture = ThumbnailGenerator().generateGradient(song);
-    final results = await Future.wait([coverFuture, gradientFuture]);
-    if (!mounted) return;
-    setState(() {
-      _coverImage = results[0] as Image;
-      _gradient = results[1] as LinearGradient?;
-      _isLoading = false;
-    });
+  Future<void> _loadAssetsForSong(SongModel song) async {
+    // Tag this loading operation with the song's path (or any unique ID)
+    final String songPathToLoad = song.path;
+    _currentLoadingSongPath = songPathToLoad;
+
+    // Optionally, set a more specific loading state if not relying on null _coverImage
+    // if (mounted) {
+    //   setState(() {
+    //     // _isLoadingCover = true; // If you have a specific flag for cover loading
+    //   });
+    // }
+
+    try {
+      final coverFuture = ThumbnailGenerator().getOriginCover(song.path);
+      final gradientFuture = ThumbnailGenerator().generateGradient(song);
+
+      final results = await Future.wait([coverFuture, gradientFuture]);
+
+      // CRITICAL CHECK: Only update UI if this load is still for the current song
+      // and the widget is still mounted.
+      if (!mounted || _currentLoadingSongPath != songPathToLoad) {
+        // This means another song was selected while this one was loading,
+        // or the widget was disposed. So, discard these results.
+        return;
+      }
+
+      setState(() {
+        _coverImage = results[0] as Image?;
+        _gradient = results[1] as LinearGradient?;
+        // _isLoadingCover = false; // Reset specific loading flag
+      });
+    } catch (e) {
+      print("Error loading assets for ${song.title}: $e");
+      if (mounted && _currentLoadingSongPath == songPathToLoad) {
+        // Handle error for the current song (e.g., show default cover)
+        setState(() {
+          _coverImage = null; // Or a default error image
+          _gradient = null; // Or a default error gradient
+          // _isLoadingCover = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
     _currentSongSubscription.cancel();
+    _currentLoadingSongPath = null; // Clear the path on dispose
     super.dispose();
   }
 
@@ -91,13 +135,10 @@ class _SongPlayPageState extends State<SongPlayPage> {
 
   @override
   Widget build(BuildContext context) {
-    // if (_isLoading) {
-    //   return const Scaffold(
-    //     body: Center(child: CircularProgressIndicator()),
-    //   );
-    // }
+    // Use _currentSongDisplaying as the song for UI elements.
+    // This song is updated via initState and the stream listener.
+    final SongModel songForUI = _currentSongDisplaying!;
 
-    final currentSong = _currentSong ?? widget.song;
     return Scaffold(
       body: Stack(
         children: [
@@ -105,7 +146,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
           AnimatedContainer(
             duration: const Duration(milliseconds: 500),
             decoration: BoxDecoration(
-              gradient: _gradient ??
+              gradient: _gradient ?? // Use loaded gradient or a default
                   LinearGradient(
                     colors: [
                       Theme.of(context).primaryColor.withOpacity(0.6),
@@ -131,7 +172,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                       Expanded(flex: 1, child: Container()), // Empty space
                       Expanded(
                         flex: 5,
-                        child: _buildCover(currentSong),
+                        child: _buildCover(
+                            songForUI), // Pass the current song for UI
                       ),
                       const SizedBox(height: 24),
                       Expanded(
@@ -140,6 +182,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                           context,
                           widget.playlistService,
                           widget.favoritesService,
+                          songForUI, // Pass the current song for UI
                         ),
                       ),
                     ],
@@ -155,11 +198,12 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildSongInfo(currentSong),
+                      _buildSongInfo(songForUI), // Pass the current song for UI
                       const SizedBox(height: 16),
                       Expanded(
                         child: LyricsDisplay(
-                          lyricsFuture: _lyricsFuture,
+                          lyricsFuture:
+                              _lyricsFuture, // Updated in stream listener
                           onTapLyric: (time) =>
                               widget.playbackService.seekTo(time),
                           playbackService: widget.playbackService,
@@ -187,9 +231,32 @@ class _SongPlayPageState extends State<SongPlayPage> {
   }
 
   Widget _buildCover(SongModel song) {
-    if (_isLoading) {
-      return const SizedBox();
+    // song parameter is the one currently intended for display
+    // If _coverImage is null, it means it's loading or failed to load.
+    // Show a placeholder in this case.
+    if (_coverImage == null) {
+      return LayoutBuilder(builder: (context, constraints) {
+        final size = min(constraints.maxHeight, constraints.maxWidth);
+        return Container(
+            width: size,
+            height: size,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              color: Colors.grey[800], // Darker placeholder for themed apps
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  offset: const Offset(0, 4),
+                  blurRadius: 8.0,
+                ),
+              ],
+            ),
+            child: Center(
+              child: CircularProgressIndicator(),
+            ));
+      });
     }
+    // Otherwise, display the loaded cover image.
     return LayoutBuilder(builder: (context, constraints) {
       final size = min(constraints.maxHeight, constraints.maxWidth);
       return Container(
@@ -204,26 +271,24 @@ class _SongPlayPageState extends State<SongPlayPage> {
               blurRadius: 8.0,
             ),
           ],
-          image: _coverImage != null
-              ? DecorationImage(
-                  image: _coverImage!.image,
-                  fit: BoxFit.cover,
-                )
-              : null,
+          image: DecorationImage(
+            image: _coverImage!.image,
+            fit: BoxFit.cover,
+          ),
         ),
-        child: null,
       );
     });
   }
 
   Widget _buildSongInfo(SongModel song) {
-    debugPrint("rebuild song info");
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           song.title ?? '未知曲名',
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
         ),
         const SizedBox(height: 8),
         Row(
@@ -251,17 +316,20 @@ class _SongPlayPageState extends State<SongPlayPage> {
     );
   }
 
-  Widget _buildPlaybackControls(BuildContext context,
-      PlaylistService playlistService, FavoritesService favoritesService) {
+  Widget _buildPlaybackControls(
+      BuildContext context,
+      PlaylistService playlistService,
+      FavoritesService favoritesService,
+      SongModel currentSong // Use the passed currentSong
+      ) {
     return StreamBuilder<PlaybackState>(
       stream: widget.playbackService.playbackStateStream,
       builder: (context, snapshot) {
         final state = snapshot.data;
         final isPlaying = state?.isPlaying ?? false;
-        final currentSong = _currentSong ?? widget.song;
-        if (currentSong == null) return const SizedBox();
         final position = state?.position ?? Duration.zero;
         final duration = state?.duration ?? Duration.zero;
+
         return Column(
           children: [
             Row(
@@ -322,9 +390,9 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 IconButton(
                   icon: const Icon(Icons.skip_previous, size: 24),
                   onPressed: () {
-                    _isLoading = true;
+                    // No need to set _isLoading here.
+                    // The stream listener will update _currentSongDisplaying and trigger _loadAssetsForSong.
                     widget.playbackService.previous();
-                    // _loadAssets();
                   },
                 ),
                 IconButton(
@@ -339,14 +407,12 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 IconButton(
                   icon: const Icon(Icons.skip_next, size: 24),
                   onPressed: () {
-                    _isLoading = true;
                     widget.playbackService.next();
-                    // _loadAssets();
                   },
                 ),
                 IconButton(
                   icon: Icon(
-                    currentSong.isFavorite
+                    currentSong.isFavorite // Use the passed currentSong
                         ? Icons.favorite
                         : Icons.favorite_border,
                     color: currentSong.isFavorite ? Colors.red : null,
