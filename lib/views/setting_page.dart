@@ -66,7 +66,7 @@ class SettingsPage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    '字体大小',
+                    '歌词字体大小',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
