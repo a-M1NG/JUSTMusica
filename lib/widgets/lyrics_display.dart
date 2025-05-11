@@ -108,6 +108,7 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
             itemBuilder: (context, index) {
               final line = _lines![index];
               final isCurrent = index == currentIndex;
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               return GestureDetector(
                 onTap: () => widget.onTapLyric(line.time),
                 child: Center(
@@ -126,7 +127,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                             isCurrent ? FontWeight.bold : FontWeight.normal,
                         color: isCurrent
                             ? Theme.of(context).primaryColor
-                            : Colors.black87,
+                            : isDark
+                                ? Colors.white
+                                : Colors.black87,
                         shadows: isCurrent
                             ? [
                                 // 添加四个方向的黑色阴影形成描边
@@ -158,7 +161,38 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                                   blurRadius: 4,
                                 ),
                               ]
-                            : null,
+                            : isDark
+                                ? [
+                                    // 添加四个方向的黑色阴影形成描边
+                                    Shadow(
+                                      color: Colors.black87,
+                                      offset: const Offset(1.0, 0.0),
+                                      blurRadius: 1.0,
+                                    ),
+                                    Shadow(
+                                      color: Colors.black87,
+                                      offset: const Offset(-1.0, 0.0),
+                                      blurRadius: 1.0,
+                                    ),
+                                    Shadow(
+                                      color: Colors.black87,
+                                      offset: const Offset(0.0, 1.0),
+                                      blurRadius: 1.0,
+                                    ),
+                                    Shadow(
+                                      color: Colors.black87,
+                                      offset: const Offset(0.0, -1.0),
+                                      blurRadius: 1.0,
+                                    ),
+                                    // 保留原有的发光效果
+                                    Shadow(
+                                      color: Theme.of(context)
+                                          .primaryColor
+                                          .withOpacity(0.5),
+                                      blurRadius: 4,
+                                    ),
+                                  ]
+                                : null,
                       ),
                       child: Text(
                         line.text,

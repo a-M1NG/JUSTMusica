@@ -85,41 +85,12 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
     List<SongModel> songList;
     try {
       songList = await MusicScannerService().scanMusic(folderPath);
+      for (var song in songList) {
+        await widget.databaseService.insertSong(song);
+      }
     } finally {
       Navigator.of(context).pop();
     }
-    if (songList.isEmpty) return;
-
-    // 缩略图进度对话框：每次都 new 一个，ValueNotifier 会自动从 0 开始
-    final progressController = StreamController<int>();
-    int currentProgress = 0;
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => ThumbnailGenerationDialog(
-        totalSongs: songList.length,
-        progressStream: progressController.stream,
-      ),
-    );
-    for (var i = 0; i < songList.length; i++) {
-      final song = songList[i];
-      await widget.databaseService.insertSong(song);
-    }
-    for (var i = 0; i < songList.length; i++) {
-      final song = songList[i];
-      await ThumbnailGenerator().generateThumbnail(song.path);
-
-      currentProgress = i + 1;
-      progressController.add(currentProgress);
-
-      // 添加微小延迟确保UI更新
-      await Future.delayed(Duration.zero);
-    }
-
-    progressController.close();
-
-    Navigator.of(context).pop();
     await loadSongs();
   }
 
