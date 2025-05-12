@@ -194,8 +194,9 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
   }
 
   void toggleSelection(int songId) {
-    if (!_isActuallyMultiSelectMode)
+    if (!_isActuallyMultiSelectMode) {
       return; // Can only select in multi-select mode
+    }
     setState(() {
       if (selectedSongIds.contains(songId)) {
         selectedSongIds.remove(songId);

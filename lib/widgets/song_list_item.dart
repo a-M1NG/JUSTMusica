@@ -4,8 +4,6 @@ import 'package:visibility_detector/visibility_detector.dart';
 import 'dart:async';
 import '../models/song_model.dart';
 import '../utils/thumbnail_generator.dart';
-import '../services/playlist_service.dart';
-import '../services/database_service.dart';
 import 'package:shimmer/shimmer.dart';
 
 class SongListItem extends StatefulWidget {

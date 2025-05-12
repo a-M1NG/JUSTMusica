@@ -95,11 +95,9 @@ class ThemeService extends ChangeNotifier {
     final colorScheme = ColorScheme.light().copyWith(
       primary: primaryColor,
       secondary: primaryColor.withOpacity(0.75),
-      background: primaryColor.withOpacity(0.1),
       surface: Colors.white,
       onPrimary: Colors.white, // 文字颜色在主色上
       onSecondary: Colors.white,
-      onBackground: Colors.black,
       onSurface: Colors.black,
       brightness: Brightness.light,
     );
@@ -149,11 +147,9 @@ class ThemeService extends ChangeNotifier {
     final colorScheme = ColorScheme.dark().copyWith(
       primary: primaryColor,
       secondary: primaryColor.withOpacity(0.75),
-      background: Colors.grey[900],
       surface: Colors.grey[850],
       onPrimary: Colors.white,
       onSecondary: Colors.white,
-      onBackground: Colors.white,
       onSurface: Colors.white,
       brightness: Brightness.dark,
     );

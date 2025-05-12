@@ -1,8 +1,6 @@
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../models/song_model.dart';
 import '../services/lyrics_service.dart';
 import '../services/playback_service.dart';

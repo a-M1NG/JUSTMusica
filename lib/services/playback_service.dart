@@ -75,7 +75,7 @@ class PlaybackService extends ChangeNotifier {
       SongModel(path: "assets/audio/sample.mp3"); // 获取当前播放的歌曲
   List<SongModel> _currentPlaylist = [];
   List<SongModel> _oriPlaylist = [];
-  List<SongModel> _playNextSongs = [];
+  final List<SongModel> _playNextSongs = [];
   int _currentIndex = -1;
   PlaybackMode _playbackMode = PlaybackMode.sequential;
   List<SongModel> get currentPlaylist => _playNextSongs + _currentPlaylist;

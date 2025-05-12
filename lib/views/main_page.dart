@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:just_musica/services/playback_service.dart';
-import 'package:just_musica/views/base_music_page.dart';
 import 'package:provider/provider.dart';
 import '../widgets/navigation_bar.dart';
 import '../widgets/playback_control_bar.dart';
