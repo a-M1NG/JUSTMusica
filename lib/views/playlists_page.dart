@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../models/playlist_model.dart';
 import '../services/playlist_service.dart';
 import 'playlist_detail_page.dart';

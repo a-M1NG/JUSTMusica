@@ -5,8 +5,7 @@ import 'package:just_musica/services/playback_service.dart';
 class VolumeController extends StatefulWidget {
   final PlaybackService playbackService;
 
-  const VolumeController({Key? key, required this.playbackService})
-      : super(key: key);
+  const VolumeController({super.key, required this.playbackService});
 
   @override
   _VolumeControllerState createState() => _VolumeControllerState();
@@ -241,8 +240,7 @@ class _VolumeControllerState extends State<VolumeController> {
 class HorizontalVolumeController extends StatefulWidget {
   final PlaybackService playbackService;
 
-  const HorizontalVolumeController({Key? key, required this.playbackService})
-      : super(key: key);
+  const HorizontalVolumeController({super.key, required this.playbackService});
 
   @override
   _HorizontalVolumeControllerState createState() =>

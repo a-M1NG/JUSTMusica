@@ -28,9 +28,9 @@ class CustomTrackShape extends RoundedRectSliderTrackShape {
 class PlaybackProgressBar extends StatefulWidget {
   final PlaybackService playbackService;
   const PlaybackProgressBar({
-    Key? key,
+    super.key,
     required this.playbackService,
-  }) : super(key: key);
+  });
 
   @override
   _PlaybackProgressBarState createState() => _PlaybackProgressBarState();

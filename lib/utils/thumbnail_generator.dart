@@ -730,7 +730,7 @@ class JustMusicaThumbservice {
       }
 
       // Use the new analysis method
-      final Map<String, Map<String, int>?>? paletteMap =
+      final Map<String, Map<String, int>?> paletteMap =
           _analyzeEnhancedPaletteColors(coverData);
       _enhancedPaletteDataCache.put(songPath, paletteMap);
       return paletteMap;

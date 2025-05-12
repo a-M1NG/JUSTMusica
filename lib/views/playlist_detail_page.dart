@@ -220,7 +220,7 @@ class _PlaylistDetailPageState
                 widget.playlist.name = newName;
                 Navigator.pop(context);
                 setState(() {});
-                CreateMessage("歌单名称已更新为: \"${newName}\"", context);
+                CreateMessage("歌单名称已更新为: \"$newName\"", context);
               }
             },
             child: const Text('保存'),
