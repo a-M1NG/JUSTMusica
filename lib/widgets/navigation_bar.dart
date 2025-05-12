@@ -99,8 +99,14 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
 
   Widget _buildPlaylistsSection() {
     return MouseRegion(
-      onEnter: (_) => setState(() => _isHovering = true),
-      onExit: (_) => setState(() => _isHovering = false),
+      onEnter: (_) => setState(() {
+        _isHovering = true;
+        _refreshPlaylists();
+      }),
+      onExit: (_) => setState(() {
+        _isHovering = false;
+        _refreshPlaylists();
+      }),
       child: ExpansionTile(
         leading: const Icon(Icons.folder_special, size: 24),
         title: const Text('收藏夹'),
