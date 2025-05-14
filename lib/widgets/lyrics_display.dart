@@ -213,7 +213,9 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                             shadows: isCurrent // 阴影效果保持不变
                                 ? [
                                     Shadow(
-                                        color: Colors.black.withOpacity(0.2),
+                                        color: isDark
+                                            ? Colors.white.withOpacity(0.6)
+                                            : Colors.black.withOpacity(0.2),
                                         offset: const Offset(1.0, 1.0),
                                         blurRadius: 1.0),
                                     Shadow(
@@ -230,7 +232,14 @@ class _LyricsDisplayState extends State<LyricsDisplay> {
                                             offset: const Offset(0.5, 0.5),
                                             blurRadius: 0.5)
                                       ]
-                                    : null),
+                                    : [
+                                        Shadow(
+                                            color: Theme.of(context)
+                                                .primaryColor
+                                                .withOpacity(0.5),
+                                            offset: const Offset(0.5, 0.5),
+                                            blurRadius: 4)
+                                      ]),
                           ),
                           child: Text(
                             line.text,
