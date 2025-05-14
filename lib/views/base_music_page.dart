@@ -133,6 +133,9 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       song.isFavorite = !song.isFavorite;
     });
     widget.favoritesService.toggleFavorite(song.id!);
+    if (widget.playbackService.currentSong.id! == song.id) {
+      widget.playbackService.currentSong.isFavorite = song.isFavorite;
+    }
   }
 
   // Abstract method: delete song
@@ -434,10 +437,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                   .normal, // Adjust extendBody for different app bar states
       appBar: _buildAppBar(),
       body: Container(
-        color: Theme.of(context)
-            .colorScheme
-            .background
-            .withOpacity(0.2), // Use colorScheme
+        color:
+            Theme.of(context).primaryColor.withOpacity(0.2), // Use colorScheme
         child: Column(
           children: [
             Expanded(
