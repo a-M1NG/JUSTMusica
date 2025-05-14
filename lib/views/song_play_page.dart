@@ -433,7 +433,9 @@ class _SongPlayPageState extends State<SongPlayPage> {
   }
 
   void _toggleFavorite(FavoritesService favoritesService, SongModel song) {
-    song.isFavorite = !song.isFavorite;
+    setState(() {
+      song.isFavorite = !song.isFavorite;
+    });
     favoritesService.toggleFavorite(song.id!);
   }
 }
