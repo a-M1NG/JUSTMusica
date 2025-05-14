@@ -96,41 +96,46 @@ class _SongListItemState extends State<SongListItem> {
       child: Row(
         children: [
           widget.isMultiSelectMode ?? false
-              ? Checkbox(
-                  value: widget.isSelected,
-                  onChanged: (value) => widget.onSelect?.call(),
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 16),
+                  child: Checkbox(
+                    value: widget.isSelected,
+                    onChanged: (value) => widget.onSelect?.call(),
+                  ),
                 )
-              : FutureBuilder<ImageProvider>(
-                  future: ThumbnailGenerator()
-                      .getThumbnailProvider(widget.song.path),
-                  builder: (context, snapshot) {
-                    double h = 45.0;
-                    if (snapshot.hasData) {
-                      return ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image(
-                          image: snapshot.data!,
-                          width: h,
-                          height: h,
-                          fit: BoxFit.cover,
-                        ),
-                      );
-                    }
-                    return ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                        width: h,
-                        height: h,
-                        color: Colors.grey.shade200,
-                        child: const Icon(
-                          Icons.music_note,
-                          size: 24,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    );
-                  },
+              : SizedBox(
+                  width: 0,
                 ),
+          FutureBuilder<ImageProvider>(
+            future: ThumbnailGenerator().getThumbnailProvider(widget.song.path),
+            builder: (context, snapshot) {
+              double h = 45.0;
+              if (snapshot.hasData) {
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image(
+                    image: snapshot.data!,
+                    width: h,
+                    height: h,
+                    fit: BoxFit.cover,
+                  ),
+                );
+              }
+              return ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  width: h,
+                  height: h,
+                  color: Colors.grey.shade200,
+                  child: const Icon(
+                    Icons.music_note,
+                    size: 24,
+                    color: Colors.grey,
+                  ),
+                ),
+              );
+            },
+          ),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
