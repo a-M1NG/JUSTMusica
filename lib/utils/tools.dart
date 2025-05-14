@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:just_musica/models/playlist_model.dart';
 import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/services/database_service.dart';
 import 'package:just_musica/services/playlist_service.dart';
 import 'package:just_musica/utils/thumbnail_generator.dart';
 
-double dialogMaxWidth = 500;
+double dialogMaxWidth = 200;
 double dialogMaxHeight = 300;
 double coverLen = 48;
 
@@ -20,6 +21,67 @@ void CreateMessage(String msg, BuildContext context) {
     SnackBar(content: Text(msg)),
   );
   return;
+}
+
+Widget _buildPlaylistListTile(
+  BuildContext context,
+  PlaylistModel playlist,
+  VoidCallback onTap,
+) {
+  Future<ImageProvider>? imgProviderFuture;
+  if (playlist.songs != null && playlist.songs!.isNotEmpty) {
+    final firstSong = playlist.songs!.first;
+    // 假设 ThumbnailGenerator 和 getThumbnailProvider 方法可用
+    imgProviderFuture =
+        ThumbnailGenerator().getThumbnailProvider(firstSong.path);
+  }
+
+  return ListTile(
+    title: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          playlist.name,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        Text(
+          "${playlist.songs!.length.toString()}首音乐",
+          style: TextStyle(
+            color: Theme.of(context).hintColor,
+            fontSize: 12,
+          ),
+        ),
+      ],
+    ),
+    minTileHeight: 60,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(10.0),
+    ),
+    leading: imgProviderFuture != null
+        ? FutureBuilder<ImageProvider>(
+            future: imgProviderFuture,
+            builder: (context, snapshot) {
+              return snapshot.hasData
+                  ? ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image(
+                        image: snapshot.data!,
+                        width: coverLen,
+                        height: coverLen,
+                        fit: BoxFit.cover,
+                      ))
+                  : const CircularProgressIndicator();
+            })
+        : ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+                color: Colors.grey,
+                width: coverLen,
+                height: coverLen,
+                child: const Icon(Icons.music_note, size: 24))),
+    onTap: onTap,
+  );
 }
 
 Future<String?> showNewPlaylistDialog(BuildContext context) {
@@ -125,45 +187,17 @@ void showAddToPlaylistDialogMultiSelection(
               imgProviderFuture =
                   ThumbnailGenerator().getThumbnailProvider(firstSong.path);
             }
-            return ListTile(
-              title: Text(playlist.name),
-              minTileHeight: 60,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              leading: imgProviderFuture != null
-                  ? FutureBuilder<ImageProvider>(
-                      future: imgProviderFuture,
-                      builder: (context, snapshot) {
-                        return snapshot.hasData
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image(
-                                  image: snapshot.data!,
-                                  width: coverLen,
-                                  height: coverLen,
-                                  fit: BoxFit.cover,
-                                ))
-                            : const CircularProgressIndicator();
-                      })
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                          color: Colors.grey,
-                          width: coverLen,
-                          height: coverLen,
-                          child: const Icon(Icons.music_note, size: 24))),
-              onTap: () async {
+            return _buildPlaylistListTile(
+              context,
+              playlist,
+              () async {
                 // ignore: use_build_context_synchronously
                 if (!mounted) return;
                 Navigator.pop(context); // Close the add to playlist dialog
-
                 var res = await playlistService.addSongsToPlaylist(
                     playlist.id!, selectedSongIds.toList());
-
                 var cnt = selectedSongIds.length;
                 exitMultiSelectMode(); // Exits multi-select, clears selection
-
                 if (res != null && !res) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('存在重复添加歌曲！')),
@@ -232,35 +266,10 @@ void showAddToPlaylistDialog(BuildContext context, SongModel song,
               imgProviderFuture =
                   ThumbnailGenerator().getThumbnailProvider(firstSong.path);
             }
-            return ListTile(
-              minTileHeight: 60,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10.0),
-              ),
-              leading: imgProviderFuture != null
-                  ? FutureBuilder<ImageProvider>(
-                      future: imgProviderFuture,
-                      builder: (context, snapshot) {
-                        return snapshot.hasData
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: Image(
-                                  image: snapshot.data!,
-                                  width: coverLen,
-                                  height: coverLen,
-                                  fit: BoxFit.cover,
-                                ))
-                            : const CircularProgressIndicator();
-                      })
-                  : ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Container(
-                          color: Colors.grey,
-                          width: coverLen,
-                          height: coverLen,
-                          child: const Icon(Icons.music_note, size: 24))),
-              title: Text(playlist.name),
-              onTap: () async {
+            return _buildPlaylistListTile(
+              context,
+              playlist,
+              () async {
                 var res = await playlistService.addSongToPlaylist(
                     playlist.id!, song.id!);
                 Navigator.pop(context);
