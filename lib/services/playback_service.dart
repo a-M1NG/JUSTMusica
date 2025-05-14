@@ -91,7 +91,7 @@ class PlaybackService extends ChangeNotifier {
     // 初始化音量
     prefs = await SharedPreferences.getInstance();
     _volume = prefs.getDouble('volume') ?? 1.0; // 默认音量为 1.0
-    _audioPlayer.setVolume(_volume);
+    _audioPlayer.setVolume(_volume * _volume);
     _volumeSubject.add(_volume); // 初始音量值
     //设置播放模式
     final modeString =
@@ -177,7 +177,7 @@ class PlaybackService extends ChangeNotifier {
       // await prefs.setDouble('volume', value); // 保存音量值到本地
       // 确保音量值在 0.0 到 1.0 之间
       _volume = value.clamp(0.0, 1.0);
-      await _audioPlayer.setVolume(_volume);
+      await _audioPlayer.setVolume(_volume * _volume);
       _volumeSubject.add(_volume); // 通知音量变化
       _logger.i('Volume set to $_volume');
       _updatePlaybackState();
@@ -305,7 +305,7 @@ class PlaybackService extends ChangeNotifier {
           isPlaying: false,
         );
       } else {
-        await _audioPlayer.setVolume(_volume);
+        await _audioPlayer.setVolume(_volume * _volume);
         _updatePlaybackState(currentSong: song, isPlaying: true);
         _logger.i('Playing song: ${song.title}');
         // now the thumbservice is running at background as an isolate
