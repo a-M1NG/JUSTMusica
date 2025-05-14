@@ -32,7 +32,7 @@
 + **homepage**
 ![image](https://github.com/user-attachments/assets/db861f99-704f-40ce-94d6-1ab928cc2c55)
 + **multi-select function**
-![image](https://github.com/user-attachments/assets/a7e7dc00-3bda-4236-8517-ecb560bcec2f)
+![image](https://github.com/user-attachments/assets/12f130b0-3027-48f1-b027-47efe4bcdc59)
 + **right click menu**
 ![image](https://github.com/user-attachments/assets/88ebd368-86c6-41a1-a44c-e744379f70f0)
 + **searching by title or artists**
