@@ -257,21 +257,24 @@ class _SongPlayPageState extends State<SongPlayPage> {
     // Otherwise, display the loaded cover image.
     return LayoutBuilder(builder: (context, constraints) {
       final size = min(constraints.maxHeight, constraints.maxWidth);
-      return Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              offset: const Offset(0, 4),
-              blurRadius: 8.0,
+      return Hero(
+        tag: "song_ori_cover",
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                offset: const Offset(0, 4),
+                blurRadius: 8.0,
+              ),
+            ],
+            image: DecorationImage(
+              image: _coverImage!.image,
+              fit: BoxFit.cover,
             ),
-          ],
-          image: DecorationImage(
-            image: _coverImage!.image,
-            fit: BoxFit.cover,
           ),
         ),
       );
