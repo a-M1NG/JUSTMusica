@@ -119,8 +119,8 @@ class _PlaylistDetailPageState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 150,
-            height: 150,
+            width: 180,
+            height: 180,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(8),
               color: Colors.grey[200],
