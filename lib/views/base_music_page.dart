@@ -436,6 +436,60 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
               AppBarMode
                   .normal, // Adjust extendBody for different app bar states
       appBar: _buildAppBar(),
+      floatingActionButton: StreamBuilder<PlaybackState>(
+          stream: widget.playbackService.playbackStateStream,
+          builder: (context, snapshot) {
+            final state = snapshot.data;
+            final currSong = state?.currentSong;
+            return FutureBuilder<List<SongModel>>(
+              future: songsFuture,
+              builder: (context, snapshot) {
+                int songIdx = -1;
+                if (currSong != null) {
+                  for (int i = 0; i < _displayedSongs.length; i++) {
+                    var song = _displayedSongs[i];
+                    if (currSong.id == song.id) {
+                      songIdx = i;
+                      break;
+                    }
+                  }
+                }
+
+                return songIdx != -1
+                    ? Opacity(
+                        opacity: 0.8,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            shape: const CircleBorder(),
+                            fixedSize: const Size(45, 45),
+                            padding: EdgeInsets.zero, // 去除默认padding
+                            elevation: 4,
+                          ),
+                          onPressed: songIdx != -1
+                              ? () {
+                                  // 滚动到歌曲所在位置
+                                  final itemHeight = 61.0;
+                                  final offset = itemHeight * songIdx;
+                                  final headerHeight = hasHeader ? 212.0 : 0;
+                                  // _scrollController
+                                  //     .jumpTo(offset + headerHeight);
+                                  _scrollController.animateTo(
+                                    offset + headerHeight,
+                                    duration: const Duration(seconds: 1),
+                                    curve: Curves.easeInOut,
+                                  );
+                                }
+                              : null,
+                          child: Icon(
+                            Icons.my_location,
+                            size: 30,
+                          ),
+                        ),
+                      )
+                    : const SizedBox();
+              },
+            );
+          }),
       body: Container(
         color:
             Theme.of(context).primaryColor.withOpacity(0.2), // Use colorScheme
