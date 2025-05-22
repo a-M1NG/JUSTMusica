@@ -38,7 +38,7 @@
 + **searching by title or artists**
 ![image](https://github.com/user-attachments/assets/5e5c102c-4f74-415d-b559-973b3c08a086)
 + **add songs to playlist**
-![image](https://github.com/user-attachments/assets/70ed2c0a-cc7c-48dd-a414-f7463e5b9dd5)
+![image](https://github.com/user-attachments/assets/86a4e17e-0730-4382-bd64-7432159fff0e)
 + **song playing detailed page with scrollable lyric displaying**
 ![image](https://github.com/user-attachments/assets/bad87280-c5e2-4d24-81ed-78b3e730b207)
 + **switching theme**
