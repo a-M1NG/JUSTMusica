@@ -30,13 +30,13 @@
 -----
 ## UI Showcase
 + **homepage**
-![image](https://github.com/user-attachments/assets/db861f99-704f-40ce-94d6-1ab928cc2c55)
+![image](https://github.com/user-attachments/assets/6f2de8a4-e706-453f-b5c9-598d5d0cfd44)
 + **multi-select function**
-![image](https://github.com/user-attachments/assets/12f130b0-3027-48f1-b027-47efe4bcdc59)
+![image](https://github.com/user-attachments/assets/b8f0c4b5-7a62-4b68-87d7-6f80b112be2a)
 + **right click menu**
 ![image](https://github.com/user-attachments/assets/88ebd368-86c6-41a1-a44c-e744379f70f0)
 + **searching by title or artists**
-![image](https://github.com/user-attachments/assets/5e5c102c-4f74-415d-b559-973b3c08a086)
+![image](https://github.com/user-attachments/assets/cb6ca5d7-769e-46de-a9fa-2c9684252691)
 + **add songs to playlist**
 ![image](https://github.com/user-attachments/assets/86a4e17e-0730-4382-bd64-7432159fff0e)
 + **song playing detailed page with scrollable lyric displaying**
