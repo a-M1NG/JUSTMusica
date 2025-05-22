@@ -5,7 +5,7 @@ import 'package:just_musica/services/database_service.dart';
 import 'package:just_musica/services/playlist_service.dart';
 import 'package:just_musica/utils/thumbnail_generator.dart';
 
-double dialogMaxWidth = 200;
+double dialogMaxWidth = 350;
 double dialogMaxHeight = 300;
 double coverLen = 48;
 
@@ -158,6 +158,7 @@ void showAddToPlaylistDialogMultiSelection(
                   );
                   return;
                 }
+
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(content: Text('已添加 $cnt 首歌到新收藏夹: $name')),
                 );
