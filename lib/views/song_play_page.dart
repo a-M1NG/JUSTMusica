@@ -425,7 +425,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                 IconButton(
                   icon: const Icon(Icons.playlist_add, size: 24),
                   onPressed: () =>
-                      showAddToPlaylistDialog(context, widget.song),
+                      showAddToPlaylistDialog(context, currentSong),
                 ),
               ],
             ),
