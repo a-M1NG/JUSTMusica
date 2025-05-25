@@ -83,6 +83,7 @@ class FavoritesService {
           whereArgs: [songId],
         );
       }
+      await batch.commit();
     } catch (e) {
       _logger.e('Failed to toggle favorites: $e');
       rethrow;

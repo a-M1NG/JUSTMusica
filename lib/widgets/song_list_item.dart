@@ -45,6 +45,10 @@ class _SongListItemState extends State<SongListItem> {
     super.dispose();
   }
 
+  _SongListItemState() {
+    VisibilityDetectorController.instance.notifyNow();
+  }
+
   @override
   Widget build(BuildContext context) {
     return VisibilityDetector(
