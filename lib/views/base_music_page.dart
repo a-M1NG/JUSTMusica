@@ -133,7 +133,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       song.isFavorite = !song.isFavorite;
     });
     widget.favoritesService.toggleFavorite(song.id!);
-    if (widget.playbackService.currentSong.id! == song.id) {
+    if ((widget.playbackService.currentSong.id ?? -1) == song.id) {
       widget.playbackService.currentSong.isFavorite = song.isFavorite;
     }
   }
