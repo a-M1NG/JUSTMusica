@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/song_model.dart';
 import '../services/lyrics_service.dart';
 import '../services/playback_service.dart';
+import '../services/service_locator.dart';
 import '../utils/thumbnail_generator.dart';
 import '../widgets/lyrics_display.dart';
 import '../services/playlist_service.dart';
@@ -15,18 +16,12 @@ import 'package:just_musica/utils/tools.dart';
 class SongPlayPage extends StatefulWidget {
   SongModel
       song; // Initial song, playbackService.currentSong will be the source of truth after init
-  final PlaybackService playbackService;
-  final FavoritesService favoritesService;
-  final PlaylistService playlistService;
   final ValueNotifier<PlaybackMode> playbackModeNotifier;
   final Function() onPlaylistsChanged;
 
   SongPlayPage({
     super.key,
     required this.song,
-    required this.playbackService,
-    required this.favoritesService,
-    required this.playlistService,
     required this.playbackModeNotifier,
     required this.onPlaylistsChanged,
   });
@@ -36,6 +31,9 @@ class SongPlayPage extends StatefulWidget {
 }
 
 class _SongPlayPageState extends State<SongPlayPage> {
+  late final PlaybackService _playbackService;
+  late final FavoritesService _favoritesService;
+  late final PlaylistService _playlistService;
   late StreamSubscription _currentSongSubscription;
   late Future<String> _lyricsFuture;
   Image? _coverImage;
@@ -49,12 +47,15 @@ class _SongPlayPageState extends State<SongPlayPage> {
   @override
   void initState() {
     super.initState();
-    _currentSongDisplaying = widget.playbackService.currentSong ?? widget.song;
+    _playbackService = serviceLocator<PlaybackService>();
+    _favoritesService = serviceLocator<FavoritesService>();
+    _playlistService = serviceLocator<PlaylistService>();
+    _currentSongDisplaying = _playbackService.currentSong ?? widget.song;
     _lyricsFuture = LyricsService().getLrcForSong(_currentSongDisplaying!);
     _loadAssetsForSong(_currentSongDisplaying!);
 
     _currentSongSubscription =
-        widget.playbackService.currentSongStream.listen((newSong) {
+        _playbackService.currentSongStream.listen((newSong) {
       if (mounted) {
         // When a new song comes from the stream, this is the new target.
         // Immediately update the song model and lyrics future.
@@ -68,7 +69,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
         _loadAssetsForSong(newSong); // Start loading assets for the new song
       }
     });
-    // _currentPlayBackMode = widget.playbackService.playbackMode; // Already available via playbackModeNotifier
+    // _currentPlayBackMode = _playbackService.playbackMode; // Already available via playbackModeNotifier
   }
 
   Future<void> _loadAssetsForSong(SongModel song) async {
@@ -127,8 +128,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
         (widget.playbackModeNotifier.value.index + 1) %
             PlaybackMode.values.length];
     widget.playbackModeNotifier.value = nextMode;
-    widget.playbackService.playbackMode = nextMode;
-    widget.playbackService.notifyListeners();
+    _playbackService.playbackMode = nextMode;
+    _playbackService.notifyListeners();
   }
 
   @override
@@ -178,8 +179,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                         flex: 2,
                         child: _buildPlaybackControls(
                           context,
-                          widget.playlistService,
-                          widget.favoritesService,
+                          _playlistService,
+                          _favoritesService,
                           songForUI, // Pass the current song for UI
                         ),
                       ),
@@ -203,8 +204,8 @@ class _SongPlayPageState extends State<SongPlayPage> {
                           lyricsFuture:
                               _lyricsFuture, // Updated in stream listener
                           onTapLyric: (time) =>
-                              widget.playbackService.seekTo(time),
-                          playbackService: widget.playbackService,
+                              _playbackService.seekTo(time),
+                          playbackService: _playbackService,
                         ),
                       ),
                     ],
@@ -324,7 +325,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
       SongModel currentSong // Use the passed currentSong
       ) {
     return StreamBuilder<PlaybackState>(
-      stream: widget.playbackService.playbackStateStream,
+      stream: _playbackService.playbackStateStream,
       builder: (context, snapshot) {
         final state = snapshot.data;
         final isPlaying = state?.isPlaying ?? false;
@@ -347,7 +348,7 @@ class _SongPlayPageState extends State<SongPlayPage> {
                   child: Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 8.0),
                     child: PlaybackProgressBar(
-                        playbackService: widget.playbackService),
+                        playbackService: _playbackService),
                   ),
                 ),
                 SizedBox(
@@ -387,13 +388,13 @@ class _SongPlayPageState extends State<SongPlayPage> {
                     );
                   },
                 ),
-                VolumeController(playbackService: widget.playbackService),
+                VolumeController(playbackService: _playbackService),
                 IconButton(
                   icon: const Icon(Icons.skip_previous, size: 24),
                   onPressed: () {
                     // No need to set _isLoading here.
                     // The stream listener will update _currentSongDisplaying and trigger _loadAssetsForSong.
-                    widget.playbackService.previous();
+                    _playbackService.previous();
                   },
                 ),
                 IconButton(
@@ -402,13 +403,13 @@ class _SongPlayPageState extends State<SongPlayPage> {
                     size: 32,
                   ),
                   onPressed: isPlaying
-                      ? widget.playbackService.pause
-                      : widget.playbackService.resume,
+                      ? _playbackService.pause
+                      : _playbackService.resume,
                 ),
                 IconButton(
                   icon: const Icon(Icons.skip_next, size: 24),
                   onPressed: () {
-                    widget.playbackService.next();
+                    _playbackService.next();
                   },
                 ),
                 IconButton(

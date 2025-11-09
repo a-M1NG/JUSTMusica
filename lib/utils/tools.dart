@@ -3,6 +3,7 @@ import 'package:just_musica/models/playlist_model.dart';
 import 'package:just_musica/models/song_model.dart';
 import 'package:just_musica/services/database_service.dart';
 import 'package:just_musica/services/playlist_service.dart';
+import 'package:just_musica/services/service_locator.dart';
 import 'package:just_musica/utils/thumbnail_generator.dart';
 
 double dialogMaxWidth = 350;
@@ -125,8 +126,7 @@ void showAddToPlaylistDialogMultiSelection(
   Set<int> selectedSongIds,
   VoidCallback exitMultiSelectMode,
 ) async {
-  var dbService = DatabaseService();
-  var playlistService = PlaylistService(await dbService.database);
+  final playlistService = serviceLocator<PlaylistService>();
   final playlists = await playlistService.getPlaylists();
   // ignore: use_build_context_synchronously
   if (!mounted) return;
@@ -219,8 +219,7 @@ void showAddToPlaylistDialogMultiSelection(
 
 void showAddToPlaylistDialog(BuildContext context, SongModel song,
     {VoidCallback updatePage = DoNothingAction.new}) async {
-  var dbService = DatabaseService();
-  var playlistService = PlaylistService(await dbService.database);
+  final playlistService = serviceLocator<PlaylistService>();
   final playlists = await playlistService.getPlaylists();
   showDialog(
     context: context,

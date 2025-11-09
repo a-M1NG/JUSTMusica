@@ -10,6 +10,7 @@ import 'playback_list_page.dart';
 import '../services/database_service.dart';
 import '../services/favorites_service.dart';
 import '../services/playlist_service.dart';
+import '../services/service_locator.dart';
 import 'setting_page.dart';
 import 'playlist_detail_page.dart';
 import '../models/playlist_model.dart';
@@ -25,106 +26,34 @@ class MainPage extends StatefulWidget {
 
 class MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
-  late List<PlaylistModel> _playlists;
-  DatabaseService? _dbService;
-  FavoritesService? _favoritesService;
-  PlaylistService? _playlistService;
-  bool _isInitializing = true;
+  late List<PlaylistModel> _playlists = [];
 
   List<Widget> get _pages {
-    if (_favoritesService == null || _playlistService == null) {
-      return [const Center(child: CircularProgressIndicator())];
-    }
-    final playbackService =
-        Provider.of<PlaybackService>(context, listen: false);
     List<Widget> res = [
-      AllSongsPage(
-        favoritesService: _favoritesService!,
-        databaseService: _dbService!,
-        playbackService: playbackService,
-      ),
-      FavoritesPage(
-        favoritesService: _favoritesService!,
-        playbackService: playbackService,
-      ),
-      PlaybackListPage(
-        favoritesService: _favoritesService!,
-        playbackService: playbackService,
-      ),
-      PlaylistsPage(
-        playlistService: _playlistService!,
-        favoritesService: _favoritesService!,
-        playbackService: playbackService,
-      ),
+      const AllSongsPage(),
+      const FavoritesPage(),
+      const PlaybackListPage(),
+      const PlaylistsPage(),
     ];
     for (var playlist in _playlists) {
-      res.add(PlaylistDetailPage(
-          playlist: playlist,
-          playlistService: _playlistService!,
-          favoritesService: _favoritesService!,
-          playbackService: playbackService));
+      res.add(PlaylistDetailPage(playlist: playlist));
     }
-    // prototype for folder viewer in nav bar
-    // res.add(Placeholder(
-    //   child: ElevatedButton(
-    //       onPressed: () {
-    //         Navigator.push(context, MaterialPageRoute<void>(
-    //           // will be a foler_detail_page
-    //           builder: (BuildContext context) {
-    //             return Scaffold(
-    //               appBar: AppBar(title: const Text('Folder 1')),
-    //               body: Center(
-    //                 child: Text("Song Lists"),
-    //               ),
-    //             );
-    //           },
-    //         ));
-    //       },
-    //       child: Text("Folder 1")),
-    // ));
-    res.add(SettingsPage());
+    res.add(const SettingsPage());
     return res;
   }
 
   @override
   void initState() {
     super.initState();
-    _initServices();
+    _loadPlaylists();
   }
 
-  Future<void> _initServices() async {
-    try {
-      debugPrint('Initializing services...');
-      // Initialize database service
-      _dbService = DatabaseService();
-      final db = await _dbService!.database;
-
-      // Initialize dependent services
-      _favoritesService = FavoritesService(db);
-      _playlistService = PlaylistService(db);
-
-      await _updatePlaylists();
-
-      setState(() {
-        _isInitializing = false;
-      });
-      debugPrint('Services initialized successfully');
-    } catch (e) {
-      // Handle initialization error
-      debugPrint('Service initialization failed: $e');
-      // You might want to show an error screen here
+  Future<void> _loadPlaylists() async {
+    final playlistService = serviceLocator<PlaylistService>();
+    _playlists = await playlistService.getPlaylists();
+    if (mounted) {
+      setState(() {}); // 触发 _pages 重建
     }
-  }
-
-  Future<void> _updatePlaylists() async {
-    _playlists = await _playlistService!.getPlaylists();
-    setState(() {}); // 触发 _pages 重建
-  }
-
-  @override
-  void dispose() {
-    _dbService?.close();
-    super.dispose();
   }
 
   void _onNavItemTapped(int index) {
@@ -135,51 +64,31 @@ class MainPageState extends State<MainPage> {
 
   @override
   Widget build(BuildContext context) {
-    final playbackService =
-        Provider.of<PlaybackService>(context, listen: false);
-    if (_isInitializing || _dbService == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    return MultiProvider(
-      providers: [
-        Provider<DatabaseService>.value(value: _dbService!),
-        Provider<FavoritesService>.value(value: _favoritesService!),
-        Provider<PlaylistService>.value(value: _playlistService!),
-      ],
-      child: Scaffold(
-        body: Column(
-          children: [
-            Expanded(
-              child: Row(
-                children: [
-                  NavigationBarWidget(
-                    selectedIndex: _selectedIndex,
-                    onItemTapped: _onNavItemTapped,
-                    playlistService: _playlistService!,
-                    playbackService: playbackService,
-                    onPlaylistsChanged: _updatePlaylists,
-                  ),
-                  Expanded(
-                    child: _pages[_selectedIndex],
-                  ),
-                ],
-              ),
+    return Scaffold(
+      body: Column(
+        children: [
+          Expanded(
+            child: Row(
+              children: [
+                NavigationBarWidget(
+                  selectedIndex: _selectedIndex,
+                  onItemTapped: _onNavItemTapped,
+                  onPlaylistsChanged: _loadPlaylists,
+                ),
+                Expanded(
+                  child: _pages[_selectedIndex],
+                ),
+              ],
             ),
-            Material(
-              elevation: 8,
-              color: Theme.of(context).canvasColor,
-              child: PlaybackControlBar(
-                playlistService: _playlistService!,
-                favoritesService: _favoritesService!,
-                playbackService: playbackService,
-                onPlaylistsChanged: _updatePlaylists,
-              ),
+          ),
+          Material(
+            elevation: 8,
+            color: Theme.of(context).canvasColor,
+            child: PlaybackControlBar(
+              onPlaylistsChanged: _loadPlaylists,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

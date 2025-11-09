@@ -2,39 +2,33 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../models/playlist_model.dart';
 import '../services/playlist_service.dart';
+import '../services/service_locator.dart';
 import 'playlist_detail_page.dart';
-import '../services/favorites_service.dart';
-import '../services/playback_service.dart';
 
 class PlaylistsPage extends StatefulWidget {
-  const PlaylistsPage({
-    super.key,
-    required this.playlistService,
-    required this.favoritesService,
-    required this.playbackService,
-  });
-  final PlaylistService playlistService;
-  final FavoritesService favoritesService;
-  final PlaybackService playbackService;
+  const PlaylistsPage({super.key});
+
   @override
   State<PlaylistsPage> createState() => _PlaylistsPageState();
 }
 
 class _PlaylistsPageState extends State<PlaylistsPage> {
+  late final PlaylistService _playlistService;
   late Future<List<PlaylistModel>> _playlistsFuture;
 
   @override
   void initState() {
     super.initState();
-    _playlistsFuture = widget.playlistService.getPlaylists();
+    _playlistService = serviceLocator<PlaylistService>();
+    _playlistsFuture = _playlistService.getPlaylists();
   }
 
   Future<void> _createNewPlaylist() async {
     final name = await _showNewPlaylistDialog(context);
     if (name != null) {
-      await widget.playlistService.createPlaylist(name);
+      await _playlistService.createPlaylist(name);
       setState(() {
-        _playlistsFuture = widget.playlistService.getPlaylists();
+        _playlistsFuture = _playlistService.getPlaylists();
       });
     }
   }
@@ -99,9 +93,6 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
                         MaterialPageRoute(
                           builder: (_) => PlaylistDetailPage(
                             playlist: playlist,
-                            playlistService: widget.playlistService,
-                            favoritesService: widget.favoritesService,
-                            playbackService: widget.playbackService,
                           ),
                         ),
                       );

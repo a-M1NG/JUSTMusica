@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import '../services/playlist_service.dart';
+import '../services/service_locator.dart';
 import '../models/playlist_model.dart';
 import '../services/playback_service.dart';
 import '../utils/tools.dart';
@@ -9,16 +10,12 @@ import 'package:just_musica/utils/thumbnail_generator.dart';
 class NavigationBarWidget extends StatefulWidget {
   final int selectedIndex;
   final Function(int) onItemTapped;
-  final PlaylistService playlistService;
-  final PlaybackService playbackService;
   final Function() onPlaylistsChanged;
 
   const NavigationBarWidget({
     super.key,
     required this.selectedIndex,
     required this.onItemTapped,
-    required this.playlistService,
-    required this.playbackService,
     required this.onPlaylistsChanged,
   });
 
@@ -27,6 +24,8 @@ class NavigationBarWidget extends StatefulWidget {
 }
 
 class _NavigationBarWidgetState extends State<NavigationBarWidget> {
+  late final PlaylistService _playlistService;
+  late final PlaybackService _playbackService;
   bool _playlistsExpanded = true;
   bool _isHovering = false;
   int _lastIndexForSettings = 4; // Initial base index for settings
@@ -35,11 +34,13 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   @override
   void initState() {
     super.initState();
+    _playlistService = serviceLocator<PlaylistService>();
+    _playbackService = serviceLocator<PlaybackService>();
     _loadPlaylists();
   }
 
   void _loadPlaylists() {
-    _playlistsFuture = widget.playlistService.getPlaylists();
+    _playlistsFuture = _playlistService.getPlaylists();
   }
 
   void _refreshPlaylists() {
@@ -185,7 +186,6 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
                     onTap: () {
                       widget.onItemTapped(4 + i); // Index for playlist item
                     },
-                    playlistService: widget.playlistService,
                     onSecondaryTapDown: (details) => _showContextMenu(
                         context, details.globalPosition, playlist),
                   );
@@ -238,13 +238,13 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       return;
     }
     var playlistSongs =
-        await widget.playlistService.getPlaylistSongs(playlist.id!);
+        await _playlistService.getPlaylistSongs(playlist.id!);
     if (playlistSongs.isEmpty) {
       if (mounted) CreateMessage('收藏夹为空，无法播放', context);
       return;
     }
-    widget.playbackService.setPlaybackList(playlistSongs, playlistSongs.first);
-    widget.playbackService.playSong(playlistSongs.first);
+    _playbackService.setPlaybackList(playlistSongs, playlistSongs.first);
+    _playbackService.playSong(playlistSongs.first);
   }
 
   Future<void> _onDeletePlaylist(PlaylistModel playlist) async {
@@ -254,7 +254,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
     }
     final confirm = await _showDeleteDialog(context, playlist.name);
     if (confirm == true) {
-      await widget.playlistService.deletePlaylist(playlist.id!);
+      await _playlistService.deletePlaylist(playlist.id!);
       _refreshPlaylists();
     }
   }
@@ -282,7 +282,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   void _createNewPlaylist() async {
     final name = await showNewPlaylistDialog(context);
     if (name != null && name.isNotEmpty) {
-      await widget.playlistService.createPlaylist(name);
+      await _playlistService.createPlaylist(name);
       _refreshPlaylists();
     }
   }
@@ -293,14 +293,12 @@ class PlaylistItemWidget extends StatefulWidget {
   final PlaylistModel playlist;
   final VoidCallback onTap;
   final void Function(TapDownDetails) onSecondaryTapDown;
-  final PlaylistService playlistService;
 
   const PlaylistItemWidget({
     super.key,
     required this.playlist,
     required this.onTap,
     required this.onSecondaryTapDown,
-    required this.playlistService,
   });
 
   @override
@@ -419,7 +417,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
           if (widget.playlist.id != null) {
             try {
               // 使用传递进来的 playlistService 获取歌曲列表
-              final songs = await widget.playlistService
+              final songs = await _playlistService
                   .getPlaylistSongs(widget.playlist.id!);
               if (mounted && songs.isNotEmpty && songs.first.path.isNotEmpty) {
                 // 更新 _imageProviderFuture 并触发UI刷新

@@ -1,22 +1,28 @@
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
+import '../services/service_locator.dart';
+import '../services/favorites_service.dart';
 import 'base_music_page.dart';
 
 class FavoritesPage extends SongListPageBase {
-  const FavoritesPage({
-    super.key,
-    required super.favoritesService,
-    required super.playbackService,
-  });
+  const FavoritesPage({super.key});
 
   @override
   State<FavoritesPage> createState() => _FavoritesPageState();
 }
 
 class _FavoritesPageState extends SongListPageBaseState<FavoritesPage> {
+  late final FavoritesService _favoritesService;
+
+  @override
+  void initState() {
+    _favoritesService = serviceLocator<FavoritesService>();
+    super.initState();
+  }
+
   @override
   Future<List<SongModel>> loadSongsImplementation() {
-    return widget.favoritesService.getFavoriteSongs();
+    return _favoritesService.getFavoriteSongs();
   }
 
   @override
@@ -27,7 +33,7 @@ class _FavoritesPageState extends SongListPageBaseState<FavoritesPage> {
       '是否从"我喜欢"中移除此歌曲？',
     );
     if (confirm == true) {
-      await widget.favoritesService.toggleFavorite(song.id!);
+      await _favoritesService.toggleFavorite(song.id!);
       await loadSongs();
     }
   }
@@ -49,7 +55,7 @@ class _FavoritesPageState extends SongListPageBaseState<FavoritesPage> {
       '是否从"我喜欢"中移除这些歌曲？',
     );
     if (confirm == true) {
-      await widget.favoritesService.toggleFavorites(selectedSongIds.toList());
+      await _favoritesService.toggleFavorites(selectedSongIds.toList());
       await loadSongs();
     }
     return confirm;
