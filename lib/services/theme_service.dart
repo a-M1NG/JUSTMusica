@@ -132,7 +132,7 @@ class ThemeService extends ChangeNotifier {
       ),
 
       // 卡片主题
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
@@ -182,7 +182,7 @@ class ThemeService extends ChangeNotifier {
           borderRadius: BorderRadius.circular(8),
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         elevation: 4,
         color: Colors.grey[900],
         shape: RoundedRectangleBorder(
