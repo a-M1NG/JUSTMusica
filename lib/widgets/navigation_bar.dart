@@ -34,9 +34,17 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   @override
   void initState() {
     super.initState();
-    _playlistService = serviceLocator<PlaylistService>();
-    _playbackService = serviceLocator<PlaybackService>();
-    _loadPlaylists();
+    _initializeServices();
+  }
+  
+  Future<void> _initializeServices() async {
+    // 等待服务就绪后再访问
+    await waitForServiceLocator();
+    if (mounted) {
+      _playlistService = serviceLocator<PlaylistService>();
+      _playbackService = serviceLocator<PlaybackService>();
+      _loadPlaylists();
+    }
   }
 
   void _loadPlaylists() {
@@ -312,7 +320,14 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
   void initState() {
     super.initState();
     _loadImageProvider();
-    _playlistService = serviceLocator<PlaylistService>();
+    _initializePlaylistService();
+  }
+  
+  Future<void> _initializePlaylistService() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playlistService = serviceLocator<PlaylistService>();
+    }
   }
 
   void _loadImageProvider() {

@@ -28,24 +28,35 @@ class MyWindowListener extends WindowListener {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await ThumbnailGenerator().init();
-
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
-    await windowManager.ensureInitialized();
-    WindowOptions windowOptions = const WindowOptions(
-      minimumSize: Size(1260, 800),
-      title: 'JUST Musica',
-    );
-    windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
-  }
-
-  DatabaseService.init();
   
-  // 初始化服务定位器
-  await setupServiceLocator();
+  try {
+    await ThumbnailGenerator().init();
+
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      await windowManager.ensureInitialized();
+      WindowOptions windowOptions = const WindowOptions(
+        minimumSize: Size(1260, 800),
+        title: 'JUST Musica',
+      );
+      windowManager.waitUntilReadyToShow(windowOptions, () async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
+
+    // 初始化数据库
+    DatabaseService.init();
+    
+    // 初始化服务定位器并等待所有服务就绪
+    await setupServiceLocator();
+    
+    // 确保服务定位器完全就绪
+    debugPrint('Service locator initialized successfully');
+  } catch (e, stackTrace) {
+    debugPrint('Failed to initialize application: $e');
+    debugPrint('Stack trace: $stackTrace');
+    rethrow;
+  }
   
   runApp(const MyApp());
 }
@@ -112,36 +123,77 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     _windowListener = MyWindowListener(context);
     windowManager.addListener(_windowListener);
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<PlaybackService>.value(
-          value: serviceLocator<PlaybackService>(),
-        ),
-        ChangeNotifierProvider<ThemeService>.value(
-          value: serviceLocator<ThemeService>(),
-        ),
-      ],
-      child: Builder(
-        builder: (context) {
-          final themeService = Provider.of<ThemeService>(context, listen: true);
-          globalProviderContext = context; // 保存全局上下文
+    
+    // 等待服务定位器就绪后再构建UI
+    return FutureBuilder(
+      future: waitForServiceLocator(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const MaterialApp(
+            home: Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('正在初始化服务...'),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        
+        if (snapshot.hasError) {
           return MaterialApp(
-            title: "JUST Musica",
-            debugShowCheckedModeBanner: false,
-            theme: themeService.currentThemeData,
-            home: MainPage(key: _mainPageKey),
-            builder: (context, child) {
-              // 确保主题加载完成后再构建UI
-              return FutureBuilder(
-                future: _ensureThemeLoaded(context),
-                builder: (context, snapshot) {
-                  return child ?? const SizedBox();
+            home: Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text('初始化失败: ${snapshot.error}'),
+                  ],
+                ),
+              ),
+            ),
+          );
+        }
+        
+        return MultiProvider(
+          providers: [
+            ChangeNotifierProvider<PlaybackService>.value(
+              value: serviceLocator<PlaybackService>(),
+            ),
+            ChangeNotifierProvider<ThemeService>.value(
+              value: serviceLocator<ThemeService>(),
+            ),
+          ],
+          child: Builder(
+            builder: (context) {
+              final themeService = Provider.of<ThemeService>(context, listen: true);
+              globalProviderContext = context; // 保存全局上下文
+              return MaterialApp(
+                title: "JUST Musica",
+                debugShowCheckedModeBanner: false,
+                theme: themeService.currentThemeData,
+                home: MainPage(key: _mainPageKey),
+                builder: (context, child) {
+                  // 确保主题加载完成后再构建UI
+                  return FutureBuilder(
+                    future: _ensureThemeLoaded(context),
+                    builder: (context, snapshot) {
+                      return child ?? const SizedBox();
+                    },
+                  );
                 },
               );
             },
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 

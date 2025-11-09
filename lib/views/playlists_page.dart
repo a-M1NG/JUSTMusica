@@ -14,13 +14,22 @@ class PlaylistsPage extends StatefulWidget {
 
 class _PlaylistsPageState extends State<PlaylistsPage> {
   late final PlaylistService _playlistService;
-  late Future<List<PlaylistModel>> _playlistsFuture;
+  Future<List<PlaylistModel>>? _playlistsFuture;
 
   @override
   void initState() {
     super.initState();
-    _playlistService = serviceLocator<PlaylistService>();
-    _playlistsFuture = _playlistService.getPlaylists();
+    _initializeService();
+  }
+  
+  Future<void> _initializeService() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playlistService = serviceLocator<PlaylistService>();
+      setState(() {
+        _playlistsFuture = _playlistService.getPlaylists();
+      });
+    }
   }
 
   Future<void> _createNewPlaylist() async {
@@ -58,7 +67,7 @@ class _PlaylistsPageState extends State<PlaylistsPage> {
           child: FutureBuilder<List<PlaylistModel>>(
             future: _playlistsFuture,
             builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
+              if (_playlistsFuture == null || snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
