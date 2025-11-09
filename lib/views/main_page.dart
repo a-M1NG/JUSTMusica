@@ -64,6 +64,24 @@ class MainPageState extends State<MainPage> {
           favoritesService: _favoritesService!,
           playbackService: playbackService));
     }
+    // prototype for folder viewer in nav bar
+    // res.add(Placeholder(
+    //   child: ElevatedButton(
+    //       onPressed: () {
+    //         Navigator.push(context, MaterialPageRoute<void>(
+    //           // will be a foler_detail_page
+    //           builder: (BuildContext context) {
+    //             return Scaffold(
+    //               appBar: AppBar(title: const Text('Folder 1')),
+    //               body: Center(
+    //                 child: Text("Song Lists"),
+    //               ),
+    //             );
+    //           },
+    //         ));
+    //       },
+    //       child: Text("Folder 1")),
+    // ));
     res.add(SettingsPage());
     return res;
   }

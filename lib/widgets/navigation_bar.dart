@@ -77,6 +77,8 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
               ),
             ),
           ),
+          // _buildNavItem(_lastIndexForSettings, '文件夹', Icons.folder),
+          // _buildNavItem(_lastIndexForSettings + 1, '设置', Icons.settings),
           _buildNavItem(_lastIndexForSettings, '设置', Icons.settings),
         ],
       ),
