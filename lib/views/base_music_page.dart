@@ -3,6 +3,7 @@ import 'package:just_musica/utils/tools.dart';
 import '../models/song_model.dart';
 import '../services/playback_service.dart';
 import '../services/favorites_service.dart';
+import '../services/service_locator.dart';
 import '../widgets/song_list_item.dart';
 import '../services/database_service.dart';
 import '../services/playlist_service.dart';
@@ -14,18 +15,13 @@ enum AppBarMode {
 }
 
 abstract class SongListPageBase extends StatefulWidget {
-  final PlaybackService playbackService;
-  final FavoritesService favoritesService;
-
-  const SongListPageBase({
-    super.key,
-    required this.playbackService,
-    required this.favoritesService,
-  });
+  const SongListPageBase({super.key});
 }
 
 abstract class SongListPageBaseState<T extends SongListPageBase>
     extends State<T> {
+  late final PlaybackService _playbackService;
+  late final FavoritesService _favoritesService;
   late Future<List<SongModel>> songsFuture;
   List<SongModel> loadedSongs = [];
   List<SongModel> _displayedSongs =
@@ -42,6 +38,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
   @override
   void initState() {
     super.initState();
+    _playbackService = serviceLocator<PlaybackService>();
+    _favoritesService = serviceLocator<FavoritesService>();
     loadSongs();
   }
 
@@ -118,13 +116,13 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     // Use _displayedSongs for context if it makes sense, or always loadedSongs for full playlist
     // For now, using loadedSongs implies the original full list context for playback.
     // If you want playback to be only from search results, use _displayedSongs.
-    widget.playbackService.setPlaybackList(loadedSongs, song);
-    widget.playbackService.playSong(song);
+    _playbackService.setPlaybackList(loadedSongs, song);
+    _playbackService.playSong(song);
   }
 
   // Add to next
   void addToNext(SongModel song) {
-    widget.playbackService.playNext(song.id!);
+    _playbackService.playNext(song.id!);
   }
 
   // Toggle favorite
@@ -132,9 +130,9 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     setState(() {
       song.isFavorite = !song.isFavorite;
     });
-    widget.favoritesService.toggleFavorite(song.id!);
-    if ((widget.playbackService.currentSong.id ?? -1) == song.id) {
-      widget.playbackService.currentSong.isFavorite = song.isFavorite;
+    _favoritesService.toggleFavorite(song.id!);
+    if ((_playbackService.currentSong.id ?? -1) == song.id) {
+      _playbackService.currentSong.isFavorite = song.isFavorite;
     }
   }
 
@@ -437,7 +435,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                   .normal, // Adjust extendBody for different app bar states
       appBar: _buildAppBar(),
       floatingActionButton: StreamBuilder<PlaybackState>(
-          stream: widget.playbackService.playbackStateStream,
+          stream: _playbackService.playbackStateStream,
           builder: (context, snapshot) {
             final state = snapshot.data;
             final currSong = state?.currentSong;
