@@ -29,18 +29,17 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
   bool _playlistsExpanded = true;
   bool _isHovering = false;
   int _lastIndexForSettings = 4; // Initial base index for settings
-  late Future<List<PlaylistModel>> _playlistsFuture = Future.value([]);
+  late Future<List<PlaylistModel>> _playlistsFuture;
 
   @override
   void initState() {
     super.initState();
     _initializeServices();
   }
-
+  
   Future<void> _initializeServices() async {
     // 等待服务就绪后再访问
     await waitForServiceLocator();
-    await Future.delayed(const Duration(seconds: 1));
     if (mounted) {
       _playlistService = serviceLocator<PlaylistService>();
       _playbackService = serviceLocator<PlaybackService>();
@@ -323,7 +322,7 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
     _loadImageProvider();
     _initializePlaylistService();
   }
-
+  
   Future<void> _initializePlaylistService() async {
     await waitForServiceLocator();
     if (mounted) {

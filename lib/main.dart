@@ -28,7 +28,7 @@ class MyWindowListener extends WindowListener {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  
   try {
     await ThumbnailGenerator().init();
 
@@ -46,11 +46,10 @@ void main() async {
 
     // 初始化数据库
     DatabaseService.init();
-
+    
     // 初始化服务定位器并等待所有服务就绪
     await setupServiceLocator();
-    await Future.delayed(const Duration(seconds: 2));
-
+    
     // 确保服务定位器完全就绪
     debugPrint('Service locator initialized successfully');
   } catch (e, stackTrace) {
@@ -58,7 +57,7 @@ void main() async {
     debugPrint('Stack trace: $stackTrace');
     rethrow;
   }
-
+  
   runApp(const MyApp());
 }
 
@@ -124,7 +123,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     _windowListener = MyWindowListener(context);
     windowManager.addListener(_windowListener);
-
+    
     // 等待服务定位器就绪后再构建UI
     return FutureBuilder(
       future: waitForServiceLocator(),
@@ -145,7 +144,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
           );
         }
-
+        
         if (snapshot.hasError) {
           return MaterialApp(
             home: Scaffold(
@@ -153,8 +152,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: Colors.red),
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
                     const SizedBox(height: 16),
                     Text('初始化失败: ${snapshot.error}'),
                   ],
@@ -163,7 +161,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
             ),
           );
         }
-
+        
         return MultiProvider(
           providers: [
             ChangeNotifierProvider<PlaybackService>.value(
@@ -175,8 +173,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
           ],
           child: Builder(
             builder: (context) {
-              final themeService =
-                  Provider.of<ThemeService>(context, listen: true);
+              final themeService = Provider.of<ThemeService>(context, listen: true);
               globalProviderContext = context; // 保存全局上下文
               return MaterialApp(
                 title: "JUST Musica",
