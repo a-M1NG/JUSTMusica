@@ -16,8 +16,16 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
 
   @override
   void initState() {
-    _playbackService = serviceLocator<PlaybackService>();
     super.initState();
+    _initializeService();
+  }
+  
+  Future<void> _initializeService() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playbackService = serviceLocator<PlaybackService>();
+      loadSongs();
+    }
   }
 
   @override

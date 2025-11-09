@@ -52,11 +52,18 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
   @override
   void initState() {
     super.initState();
-    _playlistService = serviceLocator<PlaylistService>();
-    _favoritesService = serviceLocator<FavoritesService>();
-    _playbackService = serviceLocator<PlaybackService>();
-    playbackModeNotifier = ValueNotifier(_playbackService.playbackMode);
-    prevmode = _playbackService.playbackMode;
+    _initializeServices();
+  }
+  
+  Future<void> _initializeServices() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playlistService = serviceLocator<PlaylistService>();
+      _favoritesService = serviceLocator<FavoritesService>();
+      _playbackService = serviceLocator<PlaybackService>();
+      playbackModeNotifier = ValueNotifier(_playbackService.playbackMode);
+      prevmode = _playbackService.playbackMode;
+    }
   }
 
   void _switchPlayBackMode() {

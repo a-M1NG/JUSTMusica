@@ -38,9 +38,16 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
   @override
   void initState() {
     super.initState();
-    _playbackService = serviceLocator<PlaybackService>();
-    _favoritesService = serviceLocator<FavoritesService>();
-    loadSongs();
+    _initializeServices();
+  }
+  
+  Future<void> _initializeServices() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playbackService = serviceLocator<PlaybackService>();
+      _favoritesService = serviceLocator<FavoritesService>();
+      loadSongs();
+    }
   }
 
   // Abstract method: load songs implementation

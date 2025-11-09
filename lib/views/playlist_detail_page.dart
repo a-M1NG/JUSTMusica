@@ -28,8 +28,17 @@ class _PlaylistDetailPageState
 
   @override
   void initState() {
-    _playlistService = serviceLocator<PlaylistService>();
     super.initState();
+    _initializeService();
+  }
+  
+  Future<void> _initializeService() async {
+    await waitForServiceLocator();
+    if (mounted) {
+      _playlistService = serviceLocator<PlaylistService>();
+      // Reload after service initialization
+      loadSongs();
+    }
   }
 
   @override

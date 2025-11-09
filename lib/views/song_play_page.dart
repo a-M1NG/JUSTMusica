@@ -47,6 +47,13 @@ class _SongPlayPageState extends State<SongPlayPage> {
   @override
   void initState() {
     super.initState();
+    _initializeServices();
+  }
+  
+  Future<void> _initializeServices() async {
+    await waitForServiceLocator();
+    if (!mounted) return;
+    
     _playbackService = serviceLocator<PlaybackService>();
     _favoritesService = serviceLocator<FavoritesService>();
     _playlistService = serviceLocator<PlaylistService>();
