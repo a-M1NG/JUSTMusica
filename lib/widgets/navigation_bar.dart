@@ -184,7 +184,6 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
                     onTap: () {
                       widget.onItemTapped(4 + i); // Index for playlist item
                     },
-                    playlistService: _playlistService,
                     onSecondaryTapDown: (details) => _showContextMenu(
                         context, details.globalPosition, playlist),
                   );
@@ -292,14 +291,12 @@ class PlaylistItemWidget extends StatefulWidget {
   final PlaylistModel playlist;
   final VoidCallback onTap;
   final void Function(TapDownDetails) onSecondaryTapDown;
-  final PlaylistService playlistService;
 
   const PlaylistItemWidget({
     super.key,
     required this.playlist,
     required this.onTap,
     required this.onSecondaryTapDown,
-    required this.playlistService,
   });
 
   @override

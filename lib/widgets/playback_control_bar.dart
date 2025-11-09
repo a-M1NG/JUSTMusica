@@ -356,9 +356,6 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => SongPlayPage(
           song: song,
-          playbackService: _playbackService,
-          favoritesService: _favoritesService,
-          playlistService: _playlistService,
           playbackModeNotifier: playbackModeNotifier,
           onPlaylistsChanged: widget.onPlaylistsChanged,
         ),
