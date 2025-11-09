@@ -6,29 +6,27 @@ import 'package:just_musica/utils/thumbnail_generator.dart';
 import '../models/song_model.dart';
 import '../services/database_service.dart';
 import '../services/music_scanner_service.dart';
-import '../services/service_locator.dart';
 import 'base_music_page.dart';
 import '../widgets/Thumb_dialog.dart';
 
 class AllSongsPage extends SongListPageBase {
-  const AllSongsPage({super.key});
+  final DatabaseService databaseService;
+
+  const AllSongsPage({
+    super.key,
+    required this.databaseService,
+    required super.favoritesService,
+    required super.playbackService,
+  });
 
   @override
   State<AllSongsPage> createState() => _AllSongsPageState();
 }
 
 class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
-  late final DatabaseService _databaseService;
-
-  @override
-  void initState() {
-    _databaseService = serviceLocator<DatabaseService>();
-    super.initState();
-  }
-
   @override
   Future<List<SongModel>> loadSongsImplementation() {
-    return _databaseService.getAllSongs();
+    return widget.databaseService.getAllSongs();
   }
 
   @override
@@ -40,10 +38,10 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
     );
     if (shouldDeleteFile == null) return;
     if (shouldDeleteFile == true) {
-      await _databaseService.deleteSong(song.id!, deleteFile: true);
+      await widget.databaseService.deleteSong(song.id!, deleteFile: true);
       await loadSongs();
     } else if (shouldDeleteFile == false) {
-      await _databaseService.deleteSong(song.id!, deleteFile: false);
+      await widget.databaseService.deleteSong(song.id!, deleteFile: false);
       await loadSongs();
     }
   }
@@ -86,9 +84,9 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
     );
     List<SongModel> songList;
     try {
-      songList = await serviceLocator<MusicScannerService>().scanMusic(folderPath);
+      songList = await MusicScannerService().scanMusic(folderPath);
       for (var song in songList) {
-        await _databaseService.insertSong(song);
+        await widget.databaseService.insertSong(song);
       }
     } finally {
       Navigator.of(context).pop();
@@ -104,7 +102,7 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
     if (result != null) {
       final paths =
           result.paths.where((path) => path != null).cast<String>().toList();
-      await serviceLocator<MusicScannerService>().importSongs(paths);
+      await MusicScannerService().importSongs(paths);
       final progressController = StreamController<int>();
       int currentProgress = 0;
       showDialog(
@@ -170,11 +168,11 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
     );
     if (shouldDeleteFile == null) return null;
     if (shouldDeleteFile == true) {
-      await _databaseService
+      await widget.databaseService
           .deleteSongs(selectedSongIds.toList(), deleteFile: true);
       await loadSongs();
     } else if (shouldDeleteFile == false) {
-      await _databaseService
+      await widget.databaseService
           .deleteSongs(selectedSongIds.toList(), deleteFile: false);
       await loadSongs();
     }

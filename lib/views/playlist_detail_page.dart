@@ -1,5 +1,4 @@
 import 'package:just_musica/services/database_service.dart';
-import 'package:just_musica/services/service_locator.dart';
 import 'base_music_page.dart';
 import 'package:flutter/material.dart';
 import '../models/playlist_model.dart';
@@ -11,10 +10,14 @@ import '../utils/tools.dart';
 
 class PlaylistDetailPage extends SongListPageBase {
   final PlaylistModel playlist;
+  final PlaylistService playlistService;
 
   const PlaylistDetailPage({
     super.key,
     required this.playlist,
+    required this.playlistService,
+    required super.favoritesService,
+    required super.playbackService,
   });
 
   @override
@@ -23,14 +26,7 @@ class PlaylistDetailPage extends SongListPageBase {
 
 class _PlaylistDetailPageState
     extends SongListPageBaseState<PlaylistDetailPage> {
-  late final PlaylistService _playlistService;
   ImageProvider? _coverImage;
-
-  @override
-  void initState() {
-    _playlistService = serviceLocator<PlaylistService>();
-    super.initState();
-  }
 
   @override
   void didUpdateWidget(PlaylistDetailPage oldWidget) {
@@ -48,7 +44,7 @@ class _PlaylistDetailPageState
   Future<List<SongModel>> loadSongsImplementation() async {
     debugPrint("load songs for playlist ${widget.playlist.id}");
     final songs =
-        await _playlistService.getPlaylistSongs(widget.playlist.id!);
+        await widget.playlistService.getPlaylistSongs(widget.playlist.id!);
     if (songs.isNotEmpty) {
       final latestSong = songs[0];
       try {
@@ -85,7 +81,7 @@ class _PlaylistDetailPageState
       ),
     );
     if (confirm == true) {
-      await _playlistService
+      await widget.playlistService
           .removeSongFromPlaylist(widget.playlist.id!, song.id!);
       setState(() {
         loadSongs();
@@ -219,7 +215,7 @@ class _PlaylistDetailPageState
             onPressed: () async {
               final newName = nameController.text.trim();
               if (newName.isNotEmpty) {
-                await _playlistService
+                await widget.playlistService
                     .updatePlaylistName(widget.playlist.id!, newName);
                 widget.playlist.name = newName;
                 Navigator.pop(context);
@@ -242,7 +238,7 @@ class _PlaylistDetailPageState
       '是否从收藏夹中移除这些歌曲？',
     );
     if (confirm == true) {
-      _playlistService.removeSongsFromPlaylist(
+      widget.playlistService.removeSongsFromPlaylist(
         widget.playlist.id!,
         selectedSongIds.toList(),
       );

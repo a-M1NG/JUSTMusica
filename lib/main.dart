@@ -3,7 +3,6 @@ import 'package:provider/provider.dart';
 import 'services/database_service.dart';
 import 'services/playback_service.dart';
 import 'services/theme_service.dart';
-import 'services/service_locator.dart';
 import 'views/main_page.dart';
 import 'dart:io';
 import 'package:window_manager/window_manager.dart';
@@ -18,7 +17,8 @@ class MyWindowListener extends WindowListener {
   @override
   Future<bool> onWindowClose() async {
     if (globalProviderContext != null) {
-      final playbackService = serviceLocator<PlaybackService>();
+      final playbackService =
+          Provider.of<PlaybackService>(globalProviderContext!, listen: false);
       await playbackService.saveStateToPrefs();
       ThumbnailGenerator().close();
     }
@@ -43,10 +43,6 @@ void main() async {
   }
 
   DatabaseService.init();
-  
-  // 初始化服务定位器
-  await setupServiceLocator();
-  
   runApp(const MyApp());
 }
 
@@ -114,11 +110,12 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     windowManager.addListener(_windowListener);
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider<PlaybackService>.value(
-          value: serviceLocator<PlaybackService>(),
-        ),
-        ChangeNotifierProvider<ThemeService>.value(
-          value: serviceLocator<ThemeService>(),
+        ChangeNotifierProvider<PlaybackService>(
+            create: (_) => PlaybackService()),
+        ChangeNotifierProvider<ThemeService>(
+          create: (_) => ThemeService(),
+          // 确保 ThemeService 在 MaterialApp 之前初始化完成
+          lazy: false,
         ),
       ],
       child: Builder(

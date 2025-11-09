@@ -3,7 +3,6 @@ import '../models/song_model.dart';
 import '../services/playback_service.dart';
 import '../services/playlist_service.dart';
 import '../services/favorites_service.dart';
-import '../services/service_locator.dart';
 import 'package:marquee/marquee.dart';
 import '../utils/thumbnail_generator.dart';
 import '../views/song_play_page.dart';
@@ -33,8 +32,14 @@ class CustomTrackShape extends RoundedRectSliderTrackShape {
 class PlaybackControlBar extends StatefulWidget {
   const PlaybackControlBar({
     super.key,
+    required this.playlistService,
+    required this.favoritesService,
+    required this.playbackService,
     required this.onPlaylistsChanged,
   });
+  final PlaylistService playlistService;
+  final FavoritesService favoritesService;
+  final PlaybackService playbackService;
   final Function() onPlaylistsChanged;
 
   @override
@@ -42,9 +47,6 @@ class PlaybackControlBar extends StatefulWidget {
 }
 
 class _PlaybackControlBarState extends State<PlaybackControlBar> {
-  late final PlaylistService _playlistService;
-  late final FavoritesService _favoritesService;
-  late final PlaybackService _playbackService;
   double? _dragValue;
   late ValueNotifier<PlaybackMode> playbackModeNotifier;
   PlaybackMode prevmode = PlaybackMode.loopAll;
@@ -52,26 +54,23 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
   @override
   void initState() {
     super.initState();
-    _playlistService = serviceLocator<PlaylistService>();
-    _favoritesService = serviceLocator<FavoritesService>();
-    _playbackService = serviceLocator<PlaybackService>();
-    playbackModeNotifier = ValueNotifier(_playbackService.playbackMode);
-    prevmode = _playbackService.playbackMode;
+    playbackModeNotifier = ValueNotifier(widget.playbackService.playbackMode);
+    prevmode = widget.playbackService.playbackMode;
   }
 
   void _switchPlayBackMode() {
     final nextMode = PlaybackMode.values[
         (playbackModeNotifier.value.index + 1) % PlaybackMode.values.length];
     playbackModeNotifier.value = nextMode;
-    _playbackService.playbackMode = nextMode;
-    _playbackService.notifyListeners();
+    widget.playbackService.playbackMode = nextMode;
+    widget.playbackService.notifyListeners();
     prevmode = nextMode;
   }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<PlaybackState>(
-      stream: _playbackService.playbackStateStream,
+      stream: widget.playbackService.playbackStateStream,
       builder: (context, snapshot) {
         final state = snapshot.data;
         final song = state?.currentSong;
@@ -104,7 +103,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            PlaybackProgressBar(playbackService: _playbackService),
+            PlaybackProgressBar(playbackService: widget.playbackService),
             Container(
               height: 80,
               color: Theme.of(context).primaryColor.withOpacity(0.15),
@@ -126,7 +125,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.skip_previous),
-                            onPressed: _playbackService.previous,
+                            onPressed: widget.playbackService.previous,
                           ),
                           IconButton(
                             icon: Icon(
@@ -134,12 +133,12 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                               state!.isPlaying ? Icons.pause : Icons.play_arrow,
                             ),
                             onPressed: state.isPlaying
-                                ? _playbackService.pause
-                                : _playbackService.resume,
+                                ? widget.playbackService.pause
+                                : widget.playbackService.resume,
                           ),
                           IconButton(
                             icon: const Icon(Icons.skip_next),
-                            onPressed: _playbackService.next,
+                            onPressed: widget.playbackService.next,
                           ),
                         ],
                       ),
@@ -183,7 +182,7 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
                         tooltip: '添加到收藏夹',
                       ),
                       HorizontalVolumeController(
-                          playbackService: _playbackService),
+                          playbackService: widget.playbackService),
                       IconButton(
                           onPressed: () => _onTapped(song, context),
                           icon: Icon(Icons.arrow_upward)),
@@ -346,8 +345,8 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
     setState(() {
       song.isFavorite = !song.isFavorite;
     });
-    _favoritesService.toggleFavorite(song.id!);
-    _playbackService.notifyListeners();
+    widget.favoritesService.toggleFavorite(song.id!);
+    widget.playbackService.notifyListeners();
   }
 
   void _onTapped(SongModel song, BuildContext context) {
@@ -356,6 +355,9 @@ class _PlaybackControlBarState extends State<PlaybackControlBar> {
       PageRouteBuilder(
         pageBuilder: (context, animation, secondaryAnimation) => SongPlayPage(
           song: song,
+          playbackService: widget.playbackService,
+          favoritesService: widget.favoritesService,
+          playlistService: widget.playlistService,
           playbackModeNotifier: playbackModeNotifier,
           onPlaylistsChanged: widget.onPlaylistsChanged,
         ),

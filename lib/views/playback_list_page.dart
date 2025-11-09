@@ -1,28 +1,22 @@
 import 'package:flutter/material.dart';
 import '../models/song_model.dart';
-import '../services/service_locator.dart';
-import '../services/playback_service.dart';
 import 'base_music_page.dart';
 
 class PlaybackListPage extends SongListPageBase {
-  const PlaybackListPage({super.key});
+  const PlaybackListPage({
+    super.key,
+    required super.favoritesService,
+    required super.playbackService,
+  });
 
   @override
   State<PlaybackListPage> createState() => _PlaybackListPageState();
 }
 
 class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
-  late final PlaybackService _playbackService;
-
-  @override
-  void initState() {
-    _playbackService = serviceLocator<PlaybackService>();
-    super.initState();
-  }
-
   @override
   Future<List<SongModel>> loadSongsImplementation() {
-    return _playbackService.getPlaybackList();
+    return widget.playbackService.getPlaybackList();
   }
 
   @override
@@ -33,7 +27,7 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
       '是否从播放列表中移除此歌曲？',
     );
     if (confirm == true) {
-      await _playbackService.removeFromPlaylist(song.id!);
+      await widget.playbackService.removeFromPlaylist(song.id!);
       await loadSongs();
     }
   }
@@ -41,7 +35,7 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: _playbackService,
+      listenable: widget.playbackService,
       builder: (context, _) => super.build(context),
     );
   }
@@ -64,7 +58,7 @@ class _PlaybackListPageState extends SongListPageBaseState<PlaybackListPage> {
     );
     if (confirm == true) {
       for (final songId in selectedSongIds) {
-        await _playbackService.removeFromPlaylist(songId);
+        await widget.playbackService.removeFromPlaylist(songId);
       }
       await loadSongs();
     }
