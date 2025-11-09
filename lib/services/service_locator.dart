@@ -45,10 +45,15 @@ T? tryGetService<T extends Object>() {
 }
 
 /// 检查特定服务是否已就绪
-bool isServiceReady<T extends Object>() {
+Future<bool> isServiceReady<T extends Object>() async {
   if (!_isServiceLocatorReady) return false;
   if (!serviceLocator.isRegistered<T>()) return false;
-  return serviceLocator.isReady<T>();
+  try {
+    await serviceLocator.isReady<T>();
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
 /// 初始化服务定位器，注册所有服务
@@ -96,7 +101,7 @@ Future<void> setupServiceLocator() async {
 
     // 等待异步依赖初始化完成
     await serviceLocator.allReady();
-    
+
     // 标记为已就绪
     _isServiceLocatorReady = true;
     if (!_initializationCompleter.isCompleted) {

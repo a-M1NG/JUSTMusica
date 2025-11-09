@@ -51,8 +51,9 @@ class MainPageState extends State<MainPage> {
   Future<void> _loadPlaylists() async {
     // 等待服务就绪
     await waitForServiceLocator();
+    await Future.delayed(const Duration(seconds: 2));
     if (!mounted) return;
-    
+
     final playlistService = serviceLocator<PlaylistService>();
     _playlists = await playlistService.getPlaylists();
     if (mounted) {

@@ -20,9 +20,9 @@ abstract class SongListPageBase extends StatefulWidget {
 
 abstract class SongListPageBaseState<T extends SongListPageBase>
     extends State<T> {
-  late final PlaybackService _playbackService;
+  PlaybackService? _playbackService;
   late final FavoritesService _favoritesService;
-  late Future<List<SongModel>> songsFuture;
+  late Future<List<SongModel>> songsFuture = Future.value([]);
   List<SongModel> loadedSongs = [];
   List<SongModel> _displayedSongs =
       []; // For displaying either all or searched songs
@@ -40,7 +40,7 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     super.initState();
     _initializeServices();
   }
-  
+
   Future<void> _initializeServices() async {
     await waitForServiceLocator();
     if (mounted) {
@@ -123,13 +123,21 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
     // Use _displayedSongs for context if it makes sense, or always loadedSongs for full playlist
     // For now, using loadedSongs implies the original full list context for playback.
     // If you want playback to be only from search results, use _displayedSongs.
-    _playbackService.setPlaybackList(loadedSongs, song);
-    _playbackService.playSong(song);
+    if (_playbackService == null) {
+      CreateMessage('播放服务尚未就绪', context);
+      return;
+    }
+    _playbackService!.setPlaybackList(loadedSongs, song);
+    _playbackService!.playSong(song);
   }
 
   // Add to next
   void addToNext(SongModel song) {
-    _playbackService.playNext(song.id!);
+    if (_playbackService == null) {
+      CreateMessage('播放服务尚未就绪', context);
+      return;
+    }
+    _playbackService!.playNext(song.id!);
   }
 
   // Toggle favorite
@@ -138,8 +146,11 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
       song.isFavorite = !song.isFavorite;
     });
     _favoritesService.toggleFavorite(song.id!);
-    if ((_playbackService.currentSong.id ?? -1) == song.id) {
-      _playbackService.currentSong.isFavorite = song.isFavorite;
+    // 如果播放服务还未初始化，则不尝试同步当前播放的 isFavorite 状态
+    if (_playbackService != null) {
+      if ((_playbackService!.currentSong.id ?? -1) == song.id) {
+        _playbackService!.currentSong.isFavorite = song.isFavorite;
+      }
     }
   }
 
@@ -387,7 +398,6 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
           ],
         );
       case AppBarMode.normal:
-      default:
         final Color appBarForegroundColor = theme.appBarTheme.foregroundColor ??
             theme.appBarTheme.titleTextStyle?.color ??
             (theme.brightness == Brightness.dark ? Colors.white : Colors.black);
@@ -442,7 +452,8 @@ abstract class SongListPageBaseState<T extends SongListPageBase>
                   .normal, // Adjust extendBody for different app bar states
       appBar: _buildAppBar(),
       floatingActionButton: StreamBuilder<PlaybackState>(
-          stream: _playbackService.playbackStateStream,
+          stream: _playbackService?.playbackStateStream ??
+              Stream.value(PlaybackState()),
           builder: (context, snapshot) {
             final state = snapshot.data;
             final currSong = state?.currentSong;
