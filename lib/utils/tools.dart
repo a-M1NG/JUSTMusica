@@ -126,7 +126,6 @@ void showAddToPlaylistDialogMultiSelection(
   Set<int> selectedSongIds,
   VoidCallback exitMultiSelectMode,
 ) async {
-  await waitForServiceLocator();
   final playlistService = serviceLocator<PlaylistService>();
   final playlists = await playlistService.getPlaylists();
   // ignore: use_build_context_synchronously
@@ -220,7 +219,6 @@ void showAddToPlaylistDialogMultiSelection(
 
 void showAddToPlaylistDialog(BuildContext context, SongModel song,
     {VoidCallback updatePage = DoNothingAction.new}) async {
-  await waitForServiceLocator();
   final playlistService = serviceLocator<PlaylistService>();
   final playlists = await playlistService.getPlaylists();
   showDialog(

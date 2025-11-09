@@ -16,17 +16,8 @@ class _FavoritesPageState extends SongListPageBaseState<FavoritesPage> {
 
   @override
   void initState() {
+    _favoritesService = serviceLocator<FavoritesService>();
     super.initState();
-    _initializeService();
-  }
-  
-  Future<void> _initializeService() async {
-    await waitForServiceLocator();
-    if (mounted) {
-      _favoritesService = serviceLocator<FavoritesService>();
-      // Reload songs after service is initialized
-      loadSongs();
-    }
   }
 
   @override

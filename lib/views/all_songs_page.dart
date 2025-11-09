@@ -22,16 +22,8 @@ class _AllSongsPageState extends SongListPageBaseState<AllSongsPage> {
 
   @override
   void initState() {
+    _databaseService = serviceLocator<DatabaseService>();
     super.initState();
-    _initializeService();
-  }
-  
-  Future<void> _initializeService() async {
-    await waitForServiceLocator();
-    if (mounted) {
-      _databaseService = serviceLocator<DatabaseService>();
-      loadSongs();
-    }
   }
 
   @override
