@@ -237,8 +237,7 @@ class _NavigationBarWidgetState extends State<NavigationBarWidget> {
       if (mounted) CreateMessage('收藏夹 ID 无效', context);
       return;
     }
-    var playlistSongs =
-        await _playlistService.getPlaylistSongs(playlist.id!);
+    var playlistSongs = await _playlistService.getPlaylistSongs(playlist.id!);
     if (playlistSongs.isEmpty) {
       if (mounted) CreateMessage('收藏夹为空，无法播放', context);
       return;
@@ -307,11 +306,13 @@ class PlaylistItemWidget extends StatefulWidget {
 
 class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
   Future<ImageProvider>? _imageProviderFuture;
+  late final PlaylistService _playlistService;
 
   @override
   void initState() {
     super.initState();
     _loadImageProvider();
+    _playlistService = serviceLocator<PlaylistService>();
   }
 
   void _loadImageProvider() {
@@ -417,8 +418,8 @@ class _PlaylistItemWidgetState extends State<PlaylistItemWidget> {
           if (widget.playlist.id != null) {
             try {
               // 使用传递进来的 playlistService 获取歌曲列表
-              final songs = await _playlistService
-                  .getPlaylistSongs(widget.playlist.id!);
+              final songs =
+                  await _playlistService.getPlaylistSongs(widget.playlist.id!);
               if (mounted && songs.isNotEmpty && songs.first.path.isNotEmpty) {
                 // 更新 _imageProviderFuture 并触发UI刷新
                 setState(() {
